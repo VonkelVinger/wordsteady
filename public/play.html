@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WordSteady · Today</title>
+  <link rel="stylesheet" href="./styles/site.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a class="badge" href="./index.html">← Today</a>
+      <div class="badge" id="levelBadge">B2</div>
+    </div>
+
+    <div class="card">
+      <div class="brand">Today’s word</div>
+
+      <div class="progress" id="progressDots"></div>
+
+      <div id="stepHost">
+        <!-- Step content will be injected here -->
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="btn" id="primaryBtn" type="button">
+        CONTINUE
+      </button>
+    </div>
+  </div>
+
+  <script type="module" src="./scripts/play.js"></script>
+</body>
+</html>
