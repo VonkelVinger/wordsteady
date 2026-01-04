@@ -177,3 +177,21 @@ a {
   background: #fff;
   margin-top: 10px;
 }
+/* Hero copy styles */
+.eyebrow {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.lead {
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+/* Hero headline sizing (only on the homepage hero) */
+.card.hero .h1 {
+  font-size: 28px;
+  line-height: 1.15;
+}
