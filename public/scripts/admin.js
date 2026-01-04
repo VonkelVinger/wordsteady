@@ -24,13 +24,13 @@ import {
  * Copy/paste from Firebase Console → Project settings → General → Your apps → Web app → Config
  */
 const firebaseConfig = {
-  apiKey: "PASTE",
-  authDomain: "PASTE",
-  projectId: "PASTE",
-  storageBucket: "PASTE",
-  messagingSenderId: "PASTE",
-  appId: "PASTE"
-};
+    apiKey: "AIzaSyBRZaHEyInL-aezQy4_Y9w8SDWPIGG-baE",
+    authDomain: "wordsteady-prod.firebaseapp.com",
+    projectId: "wordsteady-prod",
+    storageBucket: "wordsteady-prod.firebasestorage.app",
+    messagingSenderId: "376102396808",
+    appId: "1:376102396808:web:8996283f6f2fb0cdd5d03d"
+  };
 
 /**
  * 2) OPTIONAL: restrict publishing to specific admin UIDs
