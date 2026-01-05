@@ -37,8 +37,7 @@ const firebaseConfig = {
  * If this array is empty, any signed-in user passes the UI gate (Firestore rules must still protect writes).
  */
 const ADMIN_UIDS = [
-  // "UID1",
-  // "UID2"
+  "HDpOxpU8bzOk51H72CiogrPcyBQ2"
 ];
 
 const app = initializeApp(firebaseConfig);
@@ -173,7 +172,6 @@ function getFormData() {
 
 function isAdmin(user) {
   if (!user) return false;
-  if (!ADMIN_UIDS.length) return true;
   return ADMIN_UIDS.includes(user.uid);
 }
 
@@ -204,13 +202,30 @@ async function checkWordExists(wordKey) {
 
 function validateRequiredFields(d) {
   const problems = [];
-  if (!d.date) problems.push("Missing date.");
+
+  if (!d.date) {
+    problems.push("Missing date.");
+  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date)) {
+    problems.push("Date must be YYYY-MM-DD (e.g. 2026-01-05).");
+  }
+
   if (!d.word) problems.push("Missing word.");
   if (!d.wordKey) problems.push("Word normalisation failed (wordKey empty).");
   if (!d.simpleDef) problems.push("Missing plain meaning.");
   if (!d.example) problems.push("Missing example sentence.");
   if (!d.sourceName) problems.push("Missing source publication name (used only for identification).");
+
   return problems;
+}
+
+
+async function adminWriteSmokeTest(uid) {
+  const ref = doc(db, "adminTest", "ping");
+  await setDoc(
+    ref,
+    { ok: true, uid, at: serverTimestamp() },
+    { merge: true }
+  );
 }
 
 async function runChecks() {
@@ -223,7 +238,10 @@ async function runChecks() {
     setStatus("Signed in, but not authorised as admin on this page.", true);
     return;
   }
+await adminWriteSmokeTest(user.uid);
 
+
+  
   const d = getFormData();
   const problems = validateRequiredFields(d);
 
@@ -410,6 +428,8 @@ function init() {
   ].forEach(el => el.addEventListener("input", invalidate));
 
   onAuthStateChanged(auth, (user) => updateAuthUI(user));
+  
+  els.status.style.whiteSpace = "pre-line";
   setStatus("Ready.");
 }
 
