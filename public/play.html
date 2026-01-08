@@ -1,3 +1,143 @@
+<!-- play.html (PART 1/2) -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Daily Practice • WordSteady</title>
+  <link rel="stylesheet" href="./styles/site.css" />
+
+  <style>
+    .ws-build { margin-top: 10px; }
+
+    .ws-reveal {
+      width: 100%;
+      padding: 14px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.02);
+      font-weight: 760;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+    }
+
+    .ws-target, .ws-bank {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .ws-slot {
+      width: 34px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px dashed var(--line);
+      background: rgba(0,0,0,0.01);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    .ws-tile {
+      width: 34px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 720;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .ws-tile:active { cursor: grabbing; }
+
+    .ws-muted { color: var(--muted); }
+    .ws-success { color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">WordSteady</div>
+      <div class="badge">Daily practice</div>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow">Today’s session • ~6 minutes</p>
+
+      <h1 class="h1">Today’s word</h1>
+
+      <div class="divider"></div>
+
+      <h2 class="h2" style="margin-top:0;">Steadfast</h2>
+
+      <p class="p" style="margin-top:6px;">
+        <strong>Meaning:</strong> firm and reliable in purpose, loyalty, or belief
+      </p>
+
+      <p class="p">
+        <strong>Example:</strong><br />
+        “She remained steadfast during the crisis.”
+      </p>
+
+      <div class="divider"></div>
+
+      <h2 class="h2">Step 1: Notice the word</h2>
+      <p class="p">
+        Say the word out loud once or twice. Notice how it looks and sounds.
+        Do not rush.
+      </p>
+
+      <h2 class="h2" style="margin-top:14px;">Step 2: Build the word</h2>
+      <p class="p" id="wsStep2Hint">
+        Look at the word. When you’re ready, tap/click it.
+      </p>
+
+      <div id="wsBuild" class="ws-build" aria-label="Build the word">
+        <button id="wsWordReveal" class="ws-reveal" type="button" aria-label="Tap to start building">
+          STEADFAST
+        </button>
+
+        <div class="ws-target" id="wsTarget" aria-label="Target slots"></div>
+
+        <div class="ws-bank" id="wsBank" aria-label="Letter tiles"></div>
+
+        <div class="ws-actions" style="margin-top:10px;">
+          <button id="wsReset" class="btn secondary" type="button">Reset</button>
+        </div>
+
+        <p class="p" id="wsFeedback" style="margin-top:10px;"></p>
+      </div>
+
+      <h2 class="h2" style="margin-top:16px;">Step 3: Use the word</h2>
+      <p class="p">
+        Write one sentence using <em>steadfast</em> that you could realistically say
+        or write yourself.
+      </p>
+
+      <div class="divider"></div>
+
+      <p class="p">
+        If you recognise this word later today, the session worked.
+      </p>
+
+      <div class="row" style="margin-top:14px;">
+        <a class="btn" href="./index.html">DONE FOR TODAY</a>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <a class="btn secondary" href="./how-it-works.html">Why this works</a>
+        <a class="btn secondary" href="./account.html">Sign in</a>
+      </div>
+    </div>
+  </div>
 <!-- play.html (PART 2/2) -->
   <script>
     (function () {
