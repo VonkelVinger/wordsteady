@@ -1,76 +1,238 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Daily Practice • WordSteady</title>
-  <link rel="stylesheet" href="./styles/site.css" />
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="brand">WordSteady</div>
-      <div class="badge">Daily practice</div>
-    </div>
+<!-- play.html (PART 2/2) -->
+  <script>
+    (function () {
+      const TARGET = "STEADFAST";
 
-    <div class="card">
-      <p class="eyebrow">Today’s session • ~6 minutes</p>
+      const elReveal = document.getElementById("wsWordReveal");
+      const elTarget = document.getElementById("wsTarget");
+      const elBank = document.getElementById("wsBank");
+      const elReset = document.getElementById("wsReset");
+      const elHint = document.getElementById("wsStep2Hint");
+      const elFeedback = document.getElementById("wsFeedback");
 
-      <h1 class="h1">
-        Today’s word
-      </h1>
+      let started = false;
+      let buildCount = 0; // needs 2 correct builds
 
-      <div class="divider"></div>
+      function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
 
-      <h2 class="h2" style="margin-top:0;">
-        Steadfast
-      </h2>
+      function setFeedback(msg, cls) {
+        elFeedback.className = "p " + (cls || "");
+        elFeedback.textContent = msg || "";
+      }
 
-      <p class="p" style="margin-top:6px;">
-        <strong>Meaning:</strong> firm and reliable in purpose, loyalty, or belief
-      </p>
+      function clearTarget() {
+        elTarget.innerHTML = "";
+        for (let i = 0; i < TARGET.length; i++) {
+          const slot = document.createElement("div");
+          slot.className = "ws-slot";
+          slot.dataset.index = String(i);
+          slot.textContent = " ";
+          elTarget.appendChild(slot);
+        }
+      }
 
-      <p class="p">
-        <strong>Example:</strong><br />
-        “She remained steadfast during the crisis.”
-      </p>
+      function lettersInSlots() {
+        const slots = Array.from(elTarget.querySelectorAll(".ws-slot"));
+        return slots.map(s => (s.dataset.letter || "")).join("");
+      }
 
-      <div class="divider"></div>
+      function nextEmptySlot() {
+        return Array.from(elTarget.querySelectorAll(".ws-slot")).find(s => !s.dataset.letter);
+      }
 
-      <h2 class="h2">Step 1: Notice the word</h2>
-      <p class="p">
-        Say the word out loud once or twice. Pay attention to how it looks and
-        sounds. Do not rush.
-      </p>
+      function placeTileIntoSlot(tile, slot) {
+        if (!slot || slot.dataset.letter) return false;
 
-      <h2 class="h2" style="margin-top:14px;">Step 2: Write it correctly</h2>
-      <p class="p">
-        Write the word <em>steadfast</em> five times. Focus on spelling it
-        correctly each time.
-      </p>
+        slot.textContent = tile.textContent;
+        slot.dataset.letter = tile.textContent;
+        slot.dataset.tileId = tile.dataset.tileId;
 
-      <h2 class="h2" style="margin-top:14px;">Step 3: Use it</h2>
-      <p class="p">
-        Write one sentence using <em>steadfast</em> that you could realistically
-        say or write yourself.
-      </p>
+        tile.remove();
+        checkComplete();
+        return true;
+      }
 
-      <div class="divider"></div>
+      function removeFromSlot(slot) {
+        const letter = slot.dataset.letter;
+        const tileId = slot.dataset.tileId;
+        if (!letter) return;
 
-      <p class="p">
-        That’s it. Short, focused practice done consistently is what builds
-        vocabulary that actually sticks.
-      </p>
+        const tile = makeTile(letter, tileId);
+        elBank.appendChild(tile);
 
-      <div class="row" style="margin-top:14px;">
-        <a class="btn" href="./index.html">DONE FOR TODAY</a>
-      </div>
+        slot.textContent = " ";
+        delete slot.dataset.letter;
+        delete slot.dataset.tileId;
 
-      <div class="row" style="margin-top:10px;">
-        <a class="btn secondary" href="./how-it-works.html">Why this works</a>
-        <a class="btn secondary" href="./account.html">Sign in</a>
-      </div>
-    </div>
-  </div>
+        setFeedback("", "");
+      }
+
+      function makeTile(letter, tileId) {
+        const t = document.createElement("div");
+        t.className = "ws-tile";
+        t.textContent = letter;
+        t.setAttribute("role", "button");
+        t.setAttribute("tabindex", "0");
+        t.dataset.tileId = tileId;
+
+        // Click-to-place fallback
+        t.addEventListener("click", () => {
+          const slot = nextEmptySlot();
+          if (!slot) return;
+          placeTileIntoSlot(t, slot);
+        });
+
+        // Keyboard fallback (Enter/Space places)
+        t.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            const slot = nextEmptySlot();
+            if (!slot) return;
+            placeTileIntoSlot(t, slot);
+          }
+        });
+
+        // Pointer drag
+        t.addEventListener("pointerdown", (e) => startDrag(e, t));
+
+        return t;
+      }
+
+      // Minimal pointer-drag implementation (desktop + mobile)
+      let drag = null;
+
+      function startDrag(e, tile) {
+        if (!started) return;
+        e.preventDefault();
+
+        const rect = tile.getBoundingClientRect();
+        drag = {
+          tile,
+          offsetX: e.clientX - rect.left,
+          offsetY: e.clientY - rect.top,
+          originalParent: tile.parentElement
+        };
+
+        tile.setPointerCapture(e.pointerId);
+
+        tile.style.position = "fixed";
+        tile.style.zIndex = "9999";
+        tile.style.left = (e.clientX - drag.offsetX) + "px";
+        tile.style.top = (e.clientY - drag.offsetY) + "px";
+        tile.style.cursor = "grabbing";
+      }
+
+      function moveDrag(e) {
+        if (!drag) return;
+        e.preventDefault();
+        drag.tile.style.left = (e.clientX - drag.offsetX) + "px";
+        drag.tile.style.top = (e.clientY - drag.offsetY) + "px";
+      }
+
+      function endDrag(e) {
+        if (!drag) return;
+        e.preventDefault();
+
+        const under = document.elementFromPoint(e.clientX, e.clientY);
+        const slot = under && under.classList && under.classList.contains("ws-slot")
+          ? under
+          : (under ? under.closest(".ws-slot") : null);
+
+        drag.tile.style.position = "";
+        drag.tile.style.zIndex = "";
+        drag.tile.style.left = "";
+        drag.tile.style.top = "";
+        drag.tile.style.cursor = "";
+
+        if (slot && !slot.dataset.letter) {
+          const ok = placeTileIntoSlot(drag.tile, slot);
+          if (!ok) drag.originalParent.appendChild(drag.tile);
+        } else {
+          drag.originalParent.appendChild(drag.tile);
+        }
+
+        drag = null;
+      }
+
+      window.addEventListener("pointermove", moveDrag, { passive: false });
+      window.addEventListener("pointerup", endDrag, { passive: false });
+      window.addEventListener("pointercancel", endDrag, { passive: false });
+
+      function checkComplete() {
+        const current = lettersInSlots();
+        if (current.length !== TARGET.length) return;
+
+        if (current === TARGET) {
+          buildCount += 1;
+
+          if (buildCount === 1) {
+            setFeedback("Correct. Build it once more.", "ws-success");
+            setTimeout(() => resetBuild(false), 450);
+          } else {
+            setFeedback("Good. You’ve built the word correctly.", "ws-success");
+            elHint.textContent = "Step 2 complete.";
+            elReveal.disabled = true;
+            elReset.disabled = true;
+          }
+        } else {
+          setFeedback("Not quite. Rearrange until it’s correct.", "ws-muted");
+        }
+      }
+
+      function resetBuild(resetCount) {
+        if (resetCount) buildCount = 0;
+        clearTarget();
+        elBank.innerHTML = "";
+
+        const letters = TARGET.split("");
+        let scrambled = shuffle(letters.slice());
+        if (scrambled.join("") === TARGET) scrambled = shuffle(letters.slice());
+
+        scrambled.forEach((ch, idx) => {
+          elBank.appendChild(makeTile(ch, "t" + idx + "-" + Math.random().toString(16).slice(2)));
+        });
+      }
+
+      function start() {
+        if (started) return;
+        started = true;
+        elHint.textContent = "Rebuild the word correctly. Accuracy matters more than speed.";
+        elReveal.textContent = TARGET;
+        resetBuild(true);
+        setFeedback("", "");
+      }
+
+      elReveal.addEventListener("click", () => start());
+
+      // Clicking a slot removes its letter (quiet undo)
+      elTarget.addEventListener("click", (e) => {
+        const slot = e.target && e.target.classList && e.target.classList.contains("ws-slot")
+          ? e.target
+          : (e.target ? e.target.closest(".ws-slot") : null);
+        if (!slot) return;
+        if (!slot.dataset.letter) return;
+        removeFromSlot(slot);
+      });
+
+      elReset.addEventListener("click", () => {
+        if (!started) start();
+        resetBuild(true);
+        setFeedback("", "");
+        elHint.textContent = "Rebuild the word correctly. Accuracy matters more than speed.";
+        elReveal.disabled = false;
+        elReset.disabled = false;
+      });
+
+      // initial target placeholders visible
+      clearTarget();
+      setFeedback("", "");
+    })();
+  </script>
 </body>
 </html>
