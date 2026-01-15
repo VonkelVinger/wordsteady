@@ -1,4 +1,4 @@
-<!-- play.html (STATE-CLEAR) — PART 1/2 -->
+<!-- play.html (STATE-CLEAR, pill removed) — PART 1/2 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -33,11 +33,6 @@
     .reveal{
       width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);
       background:#f1f3f6;font-weight:700;letter-spacing:.08em;cursor:pointer
-    }
-    .statepill{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:6px 10px;border:1px solid var(--line);border-radius:999px;
-      font-size:12px;color:var(--muted);background:#fff
     }
     .buildArea{display:none;margin-top:12px}
     .slots,.bank{display:flex;gap:8px;flex-wrap:wrap}
@@ -83,9 +78,6 @@
 
       <h2>Step 2: Build the word</h2>
 
-      <!-- Visible state indicator (makes it obvious what mode you’re in) -->
-      <div class="statepill" id="wsStatePill">State: <strong id="wsStateText">NOTICE</strong></div>
-
       <div style="margin-top:10px;">
         <button id="reveal" class="reveal" type="button">STEADFAST</button>
       </div>
@@ -118,7 +110,7 @@
       </div>
     </div>
   </div>
-<!-- play.html (STATE-CLEAR) — PART 2/2 -->
+<!-- play.html (STATE-CLEAR, pill removed) — PART 2/2 -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const WORD = "STEADFAST";
@@ -131,14 +123,10 @@
       const reset = document.getElementById("reset");
       const startOver = document.getElementById("startOver");
 
-      const stateText = document.getElementById("wsStateText");
-
       let started = false; // gate: cannot build until true
 
-      function setState(s) {
-        stateText.textContent = s;
-        // Temporary debug (remove later if you want)
-        console.log("[WordSteady] State:", s);
+      function setState(_) {
+        // no UI output (pill removed). Keep as a hook for future debugging if needed.
       }
 
       function shuffle(a) {
@@ -190,7 +178,7 @@
             empty.textContent = letter;
             t.remove();
 
-            // NO FEEDBACK until complete (state-clear)
+            // NO FEEDBACK until complete
             if (!allSlotsFilled()) return;
 
             const built = currentBuilt();
@@ -229,7 +217,6 @@
       }
 
       function doStartOver() {
-        // Back to NOTICE state (state-clear)
         started = false;
         reveal.disabled = false;
         buildArea.style.display = "none";
