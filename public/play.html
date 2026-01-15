@@ -1,4 +1,4 @@
-<!-- play.html (STATE-CLEAR, pill removed) — PART 1/2 -->
+<!-- play.html (Step 3 = Choose + finish, unlocked after Step 2) — PART 1/3 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -9,7 +9,7 @@
   <style>
     :root{
       --bg:#f6f7f9; --card:#fff; --text:#121417; --muted:#5a6672; --line:#e5e9ef;
-      --btn:#111827; --btnText:#fff;
+      --btn:#111827; --btnText:#fff; --soft:#f1f3f6;
     }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--text);
@@ -32,7 +32,7 @@
     /* Step 2 UI */
     .reveal{
       width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);
-      background:#f1f3f6;font-weight:700;letter-spacing:.08em;cursor:pointer
+      background:var(--soft);font-weight:700;letter-spacing:.08em;cursor:pointer
     }
     .buildArea{display:none;margin-top:12px}
     .slots,.bank{display:flex;gap:8px;flex-wrap:wrap}
@@ -51,6 +51,28 @@
     .actions{margin-top:10px;display:flex;gap:10px;flex-wrap:wrap}
     .feedback{margin-top:10px;color:var(--muted);min-height:20px}
     .ok{color:var(--text)}
+
+    /* Step 3 UI */
+    .lockedNote{
+      margin-top:6px;color:var(--muted);font-size:13px
+    }
+    .ws3{display:none;margin-top:10px}
+    .choiceGrid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .chip{
+      border:1px solid var(--line);background:#fff;border-radius:999px;
+      padding:8px 10px;cursor:pointer;font-size:13px;line-height:1.1;
+    }
+    .chip[aria-pressed="true"]{
+      border-color:#cfd7e3;
+      background:var(--soft);
+      color:var(--text);
+    }
+    .resultBox{
+      margin-top:10px;border:1px solid var(--line);border-radius:12px;
+      padding:10px 12px;background:#fff;
+    }
+    .resultLabel{font-size:12px;color:var(--muted);margin:0 0 4px}
+    .resultText{margin:0;font-weight:600}
   </style>
 </head>
 
@@ -98,7 +120,29 @@
       <div class="divider"></div>
 
       <h2>Step 3: Use it</h2>
-      <p>Write one sentence using <em>steadfast</em> in your own words.</p>
+      <p class="lockedNote" id="ws3LockedNote">Complete Step 2 to unlock Step 3.</p>
+
+      <!-- Step 3 (unlocks on Step 2 success) -->
+      <div class="ws3" id="ws3">
+        <p style="margin-top:0;">Choose a starter. Then choose a finish.</p>
+
+        <div>
+          <p class="resultLabel" style="margin-top:10px;">Starters</p>
+          <div class="choiceGrid" id="ws3Starters" aria-label="Starters"></div>
+        </div>
+
+        <div>
+          <p class="resultLabel" style="margin-top:12px;">Finishes</p>
+          <div class="choiceGrid" id="ws3Finishes" aria-label="Finishes"></div>
+        </div>
+
+        <div class="resultBox" id="ws3ResultBox" style="display:none;">
+          <p class="resultLabel">Your sentence</p>
+          <p class="resultText" id="ws3ResultText"></p>
+        </div>
+
+        <p class="feedback ok" id="ws3Confirm" style="min-height:20px;margin-top:10px;"></p>
+      </div>
 
       <div class="divider"></div>
 
@@ -110,7 +154,7 @@
       </div>
     </div>
   </div>
-<!-- play.html (STATE-CLEAR, pill removed) — PART 2/2 -->
+<!-- play.html (Step 3 = Choose + finish, unlocked after Step 2) — PART 2/3 -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const WORD = "STEADFAST";
@@ -123,11 +167,35 @@
       const reset = document.getElementById("reset");
       const startOver = document.getElementById("startOver");
 
-      let started = false; // gate: cannot build until true
+      // Step 3 elements
+      const ws3 = document.getElementById("ws3");
+      const ws3LockedNote = document.getElementById("ws3LockedNote");
+      const ws3Starters = document.getElementById("ws3Starters");
+      const ws3Finishes = document.getElementById("ws3Finishes");
+      const ws3ResultBox = document.getElementById("ws3ResultBox");
+      const ws3ResultText = document.getElementById("ws3ResultText");
+      const ws3Confirm = document.getElementById("ws3Confirm");
 
-      function setState(_) {
-        // no UI output (pill removed). Keep as a hook for future debugging if needed.
-      }
+      let started = false;        // Step 2 gate
+      let step2Success = false;   // Unlock Step 3 only after success
+      let starterPick = null;
+      let finishPick = null;
+
+      const STARTERS = [
+        "She remained steadfast when ",
+        "He stayed steadfast despite ",
+        "They were steadfast in their ",
+        "A steadfast person will ",
+        "I try to be steadfast when "
+      ];
+
+      const FINISHES = [
+        "things got difficult.",
+        "others changed their minds.",
+        "it would have been easier to quit.",
+        "the pressure was intense.",
+        "it mattered most."
+      ];
 
       function shuffle(a) {
         for (let i = a.length - 1; i > 0; i--) {
@@ -137,7 +205,7 @@
         return a;
       }
 
-      function clearUI() {
+      function clearStep2UI() {
         slots.innerHTML = "";
         bank.innerHTML = "";
         feedback.textContent = "";
@@ -169,7 +237,6 @@
           t.textContent = letter;
 
           t.addEventListener("click", () => {
-            // HARD GATE: if not started, nothing happens
             if (!started) return;
 
             const empty = [...slots.children].find(s => !s.textContent);
@@ -178,17 +245,19 @@
             empty.textContent = letter;
             t.remove();
 
-            // NO FEEDBACK until complete
+            // No feedback until complete
             if (!allSlotsFilled()) return;
 
             const built = currentBuilt();
             if (built === WORD) {
-              setState("SUCCESS");
+              step2Success = true;
               feedback.textContent = "Correct. You’ve built the word.";
               feedback.classList.add("ok");
+              unlockStep3();
             } else {
-              setState("TRY AGAIN");
+              step2Success = false;
               feedback.textContent = "Not quite. Reset and try again.";
+              lockStep3();
             }
           });
 
@@ -201,30 +270,108 @@
         reveal.disabled = true;
         buildArea.style.display = "block";
 
-        clearUI();
+        step2Success = false;
+        lockStep3();
+
+        clearStep2UI();
         buildSlots();
         buildTiles();
-
-        setState("BUILD");
       }
 
       function doReset() {
         if (!started) return;
-        clearUI();
+
+        step2Success = false;
+        lockStep3();
+
+        clearStep2UI();
         buildSlots();
         buildTiles();
-        setState("BUILD");
       }
 
       function doStartOver() {
         started = false;
         reveal.disabled = false;
         buildArea.style.display = "none";
-        clearUI();
-        setState("NOTICE");
+
+        step2Success = false;
+        lockStep3();
+
+        clearStep2UI();
+      }
+
+      function clearStep3Selections() {
+        starterPick = null;
+        finishPick = null;
+        ws3Confirm.textContent = "";
+        ws3ResultBox.style.display = "none";
+        ws3ResultText.textContent = "";
+      }
+<!-- play.html (Step 3 = Choose + finish, unlocked after Step 2) — PART 3/3 -->
+  <script>
+      function renderChoices(container, items, getPressed, onPick) {
+        container.innerHTML = "";
+        items.forEach((txt, idx) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "chip";
+          b.textContent = txt;
+          b.setAttribute("aria-pressed", getPressed(idx) ? "true" : "false");
+          b.addEventListener("click", () => onPick(idx));
+          container.appendChild(b);
+        });
+      }
+
+      function updateStep3UI() {
+        renderChoices(
+          ws3Starters,
+          STARTERS,
+          (i) => starterPick === i,
+          (i) => {
+            starterPick = i;
+            ws3Confirm.textContent = "";
+            ws3ResultBox.style.display = "none";
+            finishPick = null;
+            updateStep3UI();
+          }
+        );
+
+        renderChoices(
+          ws3Finishes,
+          FINISHES,
+          (i) => finishPick === i,
+          (i) => {
+            // Only allow choosing a finish after starter is chosen
+            if (starterPick === null) return;
+            finishPick = i;
+            const sentence = STARTERS[starterPick] + FINISHES[finishPick];
+            ws3ResultText.textContent = sentence;
+            ws3ResultBox.style.display = "block";
+            ws3Confirm.textContent = "Nice. You used the word in context.";
+            updateStep3UI();
+          }
+        );
+      }
+
+      function lockStep3() {
+        ws3.style.display = "none";
+        ws3LockedNote.style.display = "block";
+        ws3LockedNote.textContent = "Complete Step 2 to unlock Step 3.";
+        clearStep3Selections();
+
+        // Render once (so when it unlocks, choices are ready)
+        updateStep3UI();
+      }
+
+      function unlockStep3() {
+        ws3LockedNote.style.display = "none";
+        ws3.style.display = "block";
+        clearStep3Selections();
+        updateStep3UI();
       }
 
       // Initial state
+      lockStep3();
       doStartOver();
 
       // Tap/click the word to begin build phase
