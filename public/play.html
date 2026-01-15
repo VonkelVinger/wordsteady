@@ -103,12 +103,18 @@
       cursor: pointer;
     }
 
+    /* start hidden until reveal click */
+    .buildArea { display: none; margin-top: 12px; }
+
     .slots, .bank {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-top: 12px;
     }
+
+    /* keep rows visually separated */
+    .slots { margin-top: 10px; }
+    .bank { margin-top: 12px; }
 
     .slot {
       width: 36px;
@@ -119,6 +125,7 @@
       align-items: center;
       justify-content: center;
       color: var(--muted);
+      background: rgba(0,0,0,0.01);
     }
 
     .tile {
@@ -138,6 +145,14 @@
     .feedback {
       margin-top: 10px;
       color: var(--muted);
+      min-height: 20px;
+    }
+
+    .actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
     }
   </style>
 </head>
@@ -168,12 +183,18 @@
 
       <h2>Step 2: Build the word</h2>
 
-      <button id="reveal" class="reveal">STEADFAST</button>
+      <button id="reveal" class="reveal" type="button">STEADFAST</button>
 
-      <div id="slots" class="slots"></div>
-      <div id="bank" class="bank"></div>
+      <div id="buildArea" class="buildArea" aria-label="Build the word">
+        <div id="slots" class="slots" aria-label="Slots"></div>
+        <div id="bank" class="bank" aria-label="Letter tiles"></div>
 
-      <p id="feedback" class="feedback"></p>
+        <div class="actions">
+          <button id="reset" class="btn secondary" type="button">Reset</button>
+        </div>
+
+        <p id="feedback" class="feedback"></p>
+      </div>
 
       <div class="divider"></div>
 
@@ -194,10 +215,15 @@
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const word = "STEADFAST";
+
       const reveal = document.getElementById("reveal");
+      const buildArea = document.getElementById("buildArea");
       const bank = document.getElementById("bank");
       const slots = document.getElementById("slots");
       const feedback = document.getElementById("feedback");
+      const reset = document.getElementById("reset");
+
+      let started = false;
 
       function shuffle(a) {
         for (let i = a.length - 1; i > 0; i--) {
@@ -207,26 +233,32 @@
         return a;
       }
 
-      reveal.onclick = () => {
-        reveal.disabled = true;
-
+      function clearUI() {
         slots.innerHTML = "";
         bank.innerHTML = "";
         feedback.textContent = "";
+      }
 
+      function buildSlots() {
         word.split("").forEach(() => {
           const s = document.createElement("div");
           s.className = "slot";
+          s.textContent = "";
           slots.appendChild(s);
         });
+      }
 
-        shuffle(word.split("")).forEach(letter => {
+      function buildTiles() {
+        const letters = shuffle(word.split(""));
+        letters.forEach(letter => {
           const t = document.createElement("div");
           t.className = "tile";
           t.textContent = letter;
+
           t.onclick = () => {
             const empty = [...slots.children].find(s => !s.textContent);
             if (!empty) return;
+
             empty.textContent = letter;
             t.remove();
 
@@ -238,9 +270,33 @@
                   : "Not quite. Reset and try again.";
             }
           };
+
           bank.appendChild(t);
         });
-      };
+      }
+
+      function startBuild() {
+        started = true;
+        reveal.disabled = true;
+        buildArea.style.display = "block";
+        clearUI();
+        buildSlots();
+        buildTiles();
+      }
+
+      function resetBuild() {
+        if (!started) return;
+        clearUI();
+        buildSlots();
+        buildTiles();
+      }
+
+      reveal.addEventListener("click", () => {
+        if (started) return;
+        startBuild();
+      });
+
+      reset.addEventListener("click", resetBuild);
     });
   </script>
 </body>
