@@ -1,4 +1,4 @@
-<!-- play.html (Step 3 = Choose + finish, unlocked after Step 2) — PART 1/3 -->
+<!-- play.html (FIXED, SINGLE SCRIPT) — PART 1/2 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -29,11 +29,13 @@
     .btn.secondary{background:transparent;color:var(--text);border:1px solid var(--line)}
     .row{display:flex;gap:10px;flex-wrap:wrap}
 
-    /* Step 2 UI */
     .reveal{
       width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);
-      background:var(--soft);font-weight:700;letter-spacing:.08em;cursor:pointer
+      background:var(--soft);font-weight:700;letter-spacing:.08em;cursor:pointer;
+      user-select:none;
     }
+    .reveal:disabled{opacity:.6;cursor:not-allowed}
+
     .buildArea{display:none;margin-top:12px}
     .slots,.bank{display:flex;gap:8px;flex-wrap:wrap}
     .slots{margin-top:10px}
@@ -52,21 +54,14 @@
     .feedback{margin-top:10px;color:var(--muted);min-height:20px}
     .ok{color:var(--text)}
 
-    /* Step 3 UI */
-    .lockedNote{
-      margin-top:6px;color:var(--muted);font-size:13px
-    }
+    .lockedNote{margin-top:6px;color:var(--muted);font-size:13px}
     .ws3{display:none;margin-top:10px}
     .choiceGrid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
     .chip{
       border:1px solid var(--line);background:#fff;border-radius:999px;
       padding:8px 10px;cursor:pointer;font-size:13px;line-height:1.1;
     }
-    .chip[aria-pressed="true"]{
-      border-color:#cfd7e3;
-      background:var(--soft);
-      color:var(--text);
-    }
+    .chip[aria-pressed="true"]{border-color:#cfd7e3;background:var(--soft);color:var(--text)}
     .resultBox{
       margin-top:10px;border:1px solid var(--line);border-radius:12px;
       padding:10px 12px;background:#fff;
@@ -104,7 +99,6 @@
         <button id="reveal" class="reveal" type="button">STEADFAST</button>
       </div>
 
-      <!-- Hidden until user taps the word -->
       <div id="buildArea" class="buildArea" aria-label="Build the word">
         <div id="slots" class="slots" aria-label="Slots"></div>
         <div id="bank" class="bank" aria-label="Letter tiles"></div>
@@ -122,18 +116,17 @@
       <h2>Step 3: Use it</h2>
       <p class="lockedNote" id="ws3LockedNote">Complete Step 2 to unlock Step 3.</p>
 
-      <!-- Step 3 (unlocks on Step 2 success) -->
       <div class="ws3" id="ws3">
         <p style="margin-top:0;">Choose a starter. Then choose a finish.</p>
 
         <div>
           <p class="resultLabel" style="margin-top:10px;">Starters</p>
-          <div class="choiceGrid" id="ws3Starters" aria-label="Starters"></div>
+          <div class="choiceGrid" id="ws3Starters"></div>
         </div>
 
         <div>
           <p class="resultLabel" style="margin-top:12px;">Finishes</p>
-          <div class="choiceGrid" id="ws3Finishes" aria-label="Finishes"></div>
+          <div class="choiceGrid" id="ws3Finishes"></div>
         </div>
 
         <div class="resultBox" id="ws3ResultBox" style="display:none;">
@@ -154,7 +147,7 @@
       </div>
     </div>
   </div>
-<!-- play.html (Step 3 = Choose + finish, unlocked after Step 2) — PART 2/3 -->
+
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const WORD = "STEADFAST";
@@ -167,7 +160,6 @@
       const reset = document.getElementById("reset");
       const startOver = document.getElementById("startOver");
 
-      // Step 3 elements
       const ws3 = document.getElementById("ws3");
       const ws3LockedNote = document.getElementById("ws3LockedNote");
       const ws3Starters = document.getElementById("ws3Starters");
@@ -176,8 +168,7 @@
       const ws3ResultText = document.getElementById("ws3ResultText");
       const ws3Confirm = document.getElementById("ws3Confirm");
 
-      let started = false;        // Step 2 gate
-      let step2Success = false;   // Unlock Step 3 only after success
+      let started = false;
       let starterPick = null;
       let finishPick = null;
 
@@ -229,77 +220,6 @@
         return [...slots.children].every(s => s.textContent && s.textContent.length === 1);
       }
 
-      function buildTiles() {
-        const letters = shuffle(WORD.split(""));
-        letters.forEach((letter) => {
-          const t = document.createElement("div");
-          t.className = "tile";
-          t.textContent = letter;
-
-          t.addEventListener("click", () => {
-            if (!started) return;
-
-            const empty = [...slots.children].find(s => !s.textContent);
-            if (!empty) return;
-
-            empty.textContent = letter;
-            t.remove();
-
-            // No feedback until complete
-            if (!allSlotsFilled()) return;
-
-            const built = currentBuilt();
-            if (built === WORD) {
-              step2Success = true;
-              feedback.textContent = "Correct. You’ve built the word.";
-              feedback.classList.add("ok");
-              unlockStep3();
-            } else {
-              step2Success = false;
-              feedback.textContent = "Not quite. Reset and try again.";
-              lockStep3();
-            }
-          });
-
-          bank.appendChild(t);
-        });
-      }
-
-      function enterBuildState() {
-        started = true;
-        reveal.disabled = true;
-        buildArea.style.display = "block";
-
-        step2Success = false;
-        lockStep3();
-
-        clearStep2UI();
-        buildSlots();
-        buildTiles();
-      }
-
-      function doReset() {
-        if (!started) return;
-
-        step2Success = false;
-        lockStep3();
-
-        clearStep2UI();
-        buildSlots();
-        buildTiles();
-      }
-
-      function doStartOver() {
-        started = false;
-        reveal.disabled = false;
-        buildArea.style.display = "none";
-
-        step2Success = false;
-        lockStep3();
-
-        clearStep2UI();
-      }
-
       function clearStep3Selections() {
         starterPick = null;
         finishPick = null;
@@ -307,8 +227,7 @@
         ws3ResultBox.style.display = "none";
         ws3ResultText.textContent = "";
       }
-<!-- play.html (Step 3 = Choose + finish, unlocked after Step 2) — PART 3/3 -->
-  <script>
+
       function renderChoices(container, items, getPressed, onPick) {
         container.innerHTML = "";
         items.forEach((txt, idx) => {
@@ -329,9 +248,9 @@
           (i) => starterPick === i,
           (i) => {
             starterPick = i;
+            finishPick = null;
             ws3Confirm.textContent = "";
             ws3ResultBox.style.display = "none";
-            finishPick = null;
             updateStep3UI();
           }
         );
@@ -341,7 +260,6 @@
           FINISHES,
           (i) => finishPick === i,
           (i) => {
-            // Only allow choosing a finish after starter is chosen
             if (starterPick === null) return;
             finishPick = i;
             const sentence = STARTERS[starterPick] + FINISHES[finishPick];
@@ -358,8 +276,6 @@
         ws3LockedNote.style.display = "block";
         ws3LockedNote.textContent = "Complete Step 2 to unlock Step 3.";
         clearStep3Selections();
-
-        // Render once (so when it unlocks, choices are ready)
         updateStep3UI();
       }
 
@@ -370,11 +286,69 @@
         updateStep3UI();
       }
 
-      // Initial state
-      lockStep3();
+      function buildTiles() {
+        const letters = shuffle(WORD.split(""));
+        letters.forEach((letter) => {
+          const t = document.createElement("div");
+          t.className = "tile";
+          t.textContent = letter;
+
+          t.addEventListener("click", () => {
+            if (!started) return;
+
+            const empty = [...slots.children].find(s => !s.textContent);
+            if (!empty) return;
+
+            empty.textContent = letter;
+            t.remove();
+
+            if (!allSlotsFilled()) return;
+
+            const built = currentBuilt();
+            if (built === WORD) {
+              feedback.textContent = "Correct. You’ve built the word.";
+              feedback.classList.add("ok");
+              unlockStep3();
+            } else {
+              feedback.textContent = "Not quite. Reset and try again.";
+              lockStep3();
+            }
+          });
+
+          bank.appendChild(t);
+        });
+      }
+
+      function enterBuildState() {
+        started = true;
+        reveal.disabled = true;
+        buildArea.style.display = "block";
+
+        lockStep3();
+        clearStep2UI();
+        buildSlots();
+        buildTiles();
+      }
+
+      function doReset() {
+        if (!started) return;
+        lockStep3();
+        clearStep2UI();
+        buildSlots();
+        buildTiles();
+      }
+
+      function doStartOver() {
+        started = false;
+        reveal.disabled = false;
+        buildArea.style.display = "none";
+        lockStep3();
+        clearStep2UI();
+      }
+
+      // Init
       doStartOver();
 
-      // Tap/click the word to begin build phase
       reveal.addEventListener("click", () => {
         if (started) return;
         enterBuildState();
@@ -384,5 +358,6 @@
       startOver.addEventListener("click", doStartOver);
     });
   </script>
+<!-- play.html (FIXED, SINGLE SCRIPT) — PART 2/2 -->
 </body>
 </html>
