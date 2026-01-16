@@ -124,14 +124,14 @@
     </div>
 
     <div class="card">
-      <p class="eyebrow">Today’s session • ~6 minutes</p>
+      <p class="eyebrow" id="sessionEyebrow">Today’s session • ~6 minutes</p>
 
       <h1>Today’s word</h1>
       <div class="divider"></div>
 
-      <h2>Steadfast</h2>
-      <p><strong>Meaning:</strong> firm and reliable in purpose, loyalty, or belief</p>
-      <p><strong>Example:</strong> “She remained steadfast during the crisis.”</p>
+      <h2 id="wordTitle">Loading…</h2>
+      <p><strong>Meaning:</strong> <span id="wordMeaning">Loading…</span></p>
+      <p><strong>Example:</strong> <span id="wordExample">Loading…</span></p>
 
       <div class="divider"></div>
 
@@ -141,7 +141,7 @@
       <h2>Step 2: Build the word</h2>
 
       <div style="margin-top:10px;">
-        <button id="reveal" class="reveal" type="button">STEADFAST</button>
+        <button id="reveal" class="reveal" type="button" disabled>LOADING</button>
       </div>
 
       <div id="buildArea" class="buildArea" aria-label="Build the word">
@@ -213,11 +213,10 @@
   </div>
 
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const WORD = "STEADFAST";
+    document.addEventListener("DOMContentLoaded", async () => {
 
       // ──────────────────────────────
-      // Daily session persistence (local)
+      // Content loading (decoupled)
       // ──────────────────────────────
       function ymdLocal() {
         const d = new Date();
@@ -226,6 +225,103 @@
         const day = String(d.getDate()).padStart(2, "0");
         return `${y}-${m}-${day}`;
       }
+
+      function getContentUrl() {
+        const u = new URL(window.location.href);
+        const date = u.searchParams.get("date");
+        if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          return `./data/words/${date}.json?v=${Date.now()}`;
+        }
+        return `./data/today.json?v=${Date.now()}`;
+      }
+
+      const FALLBACK_PACK = {
+        meta: { id: `fallback-${ymdLocal()}`, minutes: 6 },
+        word: { text: "STEADFAST", display: "Steadfast" },
+        meaning: "firm and reliable in purpose, loyalty, or belief",
+        example: "“She remained steadfast during the crisis.”",
+        step3Target: 2,
+        starters: [
+          { text: "She remained steadfast when ", accepts: ["CLAUSE"], tense: "PAST" },
+          { text: "I try to be steadfast when ", accepts: ["CLAUSE"], tense: "PRESENT" },
+          { text: "He stayed steadfast despite ", accepts: ["GERUND"] },
+          { text: "They were steadfast in their ", accepts: ["NOUN_PHRASE"] },
+          { text: "A steadfast person will ", accepts: ["VP"] }
+        ],
+        finishes: [
+          { text: "things get difficult.", form: "CLAUSE", tense: "PRESENT" },
+          { text: "others change their minds.", form: "CLAUSE", tense: "PRESENT" },
+          { text: "the pressure is intense.", form: "CLAUSE", tense: "PRESENT" },
+          { text: "it matters most.", form: "CLAUSE", tense: "PRESENT" },
+          { text: "it would be easier to quit.", form: "CLAUSE", tense: "PRESENT" },
+
+          { text: "things got difficult.", form: "CLAUSE", tense: "PAST" },
+          { text: "others changed their minds.", form: "CLAUSE", tense: "PAST" },
+          { text: "the pressure was intense.", form: "CLAUSE", tense: "PAST" },
+          { text: "it mattered most.", form: "CLAUSE", tense: "PAST" },
+          { text: "it would have been easier to quit.", form: "CLAUSE", tense: "PAST" },
+
+          { text: "things getting difficult.", form: "GERUND" },
+          { text: "the pressure increasing.", form: "GERUND" },
+          { text: "the criticism growing louder.", form: "GERUND" },
+
+          { text: "beliefs.", form: "NOUN_PHRASE" },
+          { text: "commitment.", form: "NOUN_PHRASE" },
+          { text: "principles.", form: "NOUN_PHRASE" },
+
+          { text: "keep going.", form: "VP" },
+          { text: "stand firm.", form: "VP" },
+          { text: "follow through.", form: "VP" },
+          { text: "remain calm under pressure.", form: "VP" }
+        ]
+      };
+
+      async function loadPack() {
+        try {
+          const res = await fetch(getContentUrl(), { cache: "no-store" });
+          if (!res.ok) throw new Error("bad status");
+          const json = await res.json();
+          return json;
+        } catch {
+          return FALLBACK_PACK;
+        }
+      }
+
+      const pack = await loadPack();
+
+      // Basic validation + normalization
+      const WORD = String(pack?.word?.text || "").trim().toUpperCase();
+      const DISPLAY = String(pack?.word?.display || "").trim() || (WORD ? (WORD[0] + WORD.slice(1).toLowerCase()) : "Word");
+      const MEANING = String(pack?.meaning || "").trim() || "—";
+      const EXAMPLE = String(pack?.example || "").trim() || "—";
+      const STEP3_TARGET = Math.max(1, Number(pack?.step3Target || 2));
+      const STARTERS = Array.isArray(pack?.starters) ? pack.starters : [];
+      const FINISHES = Array.isArray(pack?.finishes) ? pack.finishes : [];
+
+      const wordTitle = document.getElementById("wordTitle");
+      const wordMeaning = document.getElementById("wordMeaning");
+      const wordExample = document.getElementById("wordExample");
+      const sessionEyebrow = document.getElementById("sessionEyebrow");
+      const reveal = document.getElementById("reveal");
+
+      wordTitle.textContent = DISPLAY || "Word";
+      wordMeaning.textContent = MEANING;
+      wordExample.textContent = EXAMPLE;
+      sessionEyebrow.textContent = `Today’s session • ~${Number(pack?.meta?.minutes || 6)} minutes`;
+
+      // If pack is malformed, keep the page usable but don’t crash
+      if (!WORD || !STARTERS.length || !FINISHES.length) {
+        reveal.textContent = "CONTENT ERROR";
+        reveal.disabled = true;
+        return;
+      }
+
+      reveal.textContent = WORD;
+      reveal.disabled = false;
+
+      // ──────────────────────────────
+      // Daily session persistence (keyed by date+word)
+      // ──────────────────────────────
       const SESSION_KEY = `ws-play-${ymdLocal()}-${WORD}`;
 
       function saveState(state) {
@@ -240,9 +336,7 @@
       function clearState() {
         try { localStorage.removeItem(SESSION_KEY); } catch {}
       }
-
       // Step 2 elements
-      const reveal = document.getElementById("reveal");
       const buildArea = document.getElementById("buildArea");
       const bank = document.getElementById("bank");
       const slots = document.getElementById("slots");
@@ -286,7 +380,6 @@
       let step2Done = false;
 
       // Step 3 completion
-      const STEP3_TARGET = 2;
       let step3Correct = 0;
       let step3Done = false;
 
@@ -296,40 +389,6 @@
 
       // Currently displayed finishes (includes distractors in challenge mode)
       let displayedFinishes = [];
-      const STARTERS = [
-        { text: "She remained steadfast when ", accepts: ["CLAUSE"], tense: "PAST" },
-        { text: "I try to be steadfast when ", accepts: ["CLAUSE"], tense: "PRESENT" },
-        { text: "He stayed steadfast despite ", accepts: ["GERUND"] },
-        { text: "They were steadfast in their ", accepts: ["NOUN_PHRASE"] },
-        { text: "A steadfast person will ", accepts: ["VP"] }
-      ];
-
-      const FINISHES = [
-        { text: "things get difficult.", form: "CLAUSE", tense: "PRESENT" },
-        { text: "others change their minds.", form: "CLAUSE", tense: "PRESENT" },
-        { text: "the pressure is intense.", form: "CLAUSE", tense: "PRESENT" },
-        { text: "it matters most.", form: "CLAUSE", tense: "PRESENT" },
-        { text: "it would be easier to quit.", form: "CLAUSE", tense: "PRESENT" },
-
-        { text: "things got difficult.", form: "CLAUSE", tense: "PAST" },
-        { text: "others changed their minds.", form: "CLAUSE", tense: "PAST" },
-        { text: "the pressure was intense.", form: "CLAUSE", tense: "PAST" },
-        { text: "it mattered most.", form: "CLAUSE", tense: "PAST" },
-        { text: "it would have been easier to quit.", form: "CLAUSE", tense: "PAST" },
-
-        { text: "things getting difficult.", form: "GERUND" },
-        { text: "the pressure increasing.", form: "GERUND" },
-        { text: "the criticism growing louder.", form: "GERUND" },
-
-        { text: "beliefs.", form: "NOUN_PHRASE" },
-        { text: "commitment.", form: "NOUN_PHRASE" },
-        { text: "principles.", form: "NOUN_PHRASE" },
-
-        { text: "keep going.", form: "VP" },
-        { text: "stand firm.", form: "VP" },
-        { text: "follow through.", form: "VP" },
-        { text: "remain calm under pressure.", form: "VP" }
-      ];
 
       let starterPick = null;
       let finishPick = null;
@@ -415,7 +474,7 @@
         }
       }
 
-      // IMPORTANT: validate step2Done from the actual slots
+      // Validate step2Done from actual slots
       function validateStep2DoneFromSlots() {
         const built = currentBuilt();
         if (built === WORD) {
@@ -427,7 +486,6 @@
           step2Done = false;
           feedback.classList.remove("ok");
           showStep2DoneUI(false);
-          // keep feedback as-is unless it claims completion
           if ((feedback.textContent || "").toLowerCase().includes("built the word")) {
             feedback.textContent = "";
           }
@@ -471,6 +529,7 @@
           container.appendChild(b);
         });
       }
+
       function lockStep3() {
         ws3.style.display = "none";
         ws3LockedNote.style.display = "block";
@@ -518,11 +577,11 @@
         }
         return out;
       }
-
       function buildDistractors(starterObj, correctList) {
         const distractors = [];
         const accepts = Array.isArray(starterObj.accepts) ? starterObj.accepts : [];
 
+        // Wrong tense distractor (CLAUSE only)
         if (accepts.includes("CLAUSE")) {
           const stTense = starterObj.tense;
           const opposite = (stTense === "PAST") ? "PRESENT" : (stTense === "PRESENT" ? "PAST" : null);
@@ -535,6 +594,7 @@
           }
         }
 
+        // Wrong form distractor
         const forms = ["CLAUSE", "GERUND", "NOUN_PHRASE", "VP"];
         const wrongForms = forms.filter(fr => !accepts.includes(fr));
         if (wrongForms.length) {
@@ -585,6 +645,7 @@
       function updateStep3UI() {
         const disableAll = step3Done;
 
+        // Starters
         renderChoices(
           ws3Starters,
           STARTERS,
@@ -603,10 +664,9 @@
 
         const starterObj = (starterPick === null) ? null : STARTERS[starterPick];
         const correctList = starterObj ? getCompatibleFinishesForStarter(starterObj) : [];
-
         const challengeOn = Boolean(ws3Challenge.checked);
-        let listForDisplay = [];
 
+        let listForDisplay = [];
         if (!starterObj) {
           listForDisplay = [];
         } else if (!challengeOn) {
@@ -622,6 +682,7 @@
         listForDisplay = uniqueByText(listForDisplay);
         displayedFinishes = shuffle(listForDisplay.slice());
 
+        // Finishes
         renderChoices(
           ws3Finishes,
           displayedFinishes,
@@ -711,7 +772,6 @@
           bank.appendChild(t);
         });
 
-        // If bank is empty and we're not done, something's off — rebuild safely
         if (!step2Done && bank.children.length === 0) {
           renderBankFromLetters(shuffle(WORD.split("")));
         }
@@ -765,6 +825,7 @@
       // ─────────────
       setDoneEnabled(false);
       showStep3DoneUI(false);
+      updateScoreUI();
 
       const saved = loadState();
       if (saved) {
@@ -792,13 +853,8 @@
           clearStep2UI();
         }
 
-        // 🔒 KEY FIX: reconcile step2Done with the actual slots
+        // reconcile step2Done with actual slots
         validateStep2DoneFromSlots();
-
-        // If saved says done but slots are NOT done, force interactive mode
-        if (!step2Done && started && buildArea.style.display === "block") {
-          showStep2DoneUI(false);
-        }
 
         updateScoreUI();
 
@@ -817,7 +873,6 @@
         if (savedTimer) clearTimeout(savedTimer);
         savedTimer = setTimeout(() => setSavedMessage(""), 1200);
       } else {
-        updateScoreUI();
         buildArea.style.display = "none";
         reveal.disabled = false;
         lockStep3();
