@@ -173,7 +173,8 @@
       // ──────────────────────────────
       // STEP 3 — TYPED SENTENCE BUILDER
       // ──────────────────────────────
-      // Rule: starter.accepts must include finish.form
+      // starter.accepts must include finish.form
+
       const STARTERS = [
         { text: "She remained steadfast when ", accepts: ["CLAUSE"] },
         { text: "He stayed steadfast despite ", accepts: ["GERUND"] },
@@ -183,17 +184,18 @@
       ];
 
       const FINISHES = [
+        // CLAUSE (for "when" and "will")
         { text: "things got difficult.", form: "CLAUSE" },
         { text: "others changed their minds.", form: "CLAUSE" },
         { text: "it would have been easier to quit.", form: "CLAUSE" },
         { text: "the pressure was intense.", form: "CLAUSE" },
         { text: "it mattered most.", form: "CLAUSE" },
 
-        // Compatible with "despite" (GERUND)
+        // GERUND (for "despite")
         { text: "things getting difficult.", form: "GERUND" },
         { text: "the pressure increasing.", form: "GERUND" },
 
-        // Compatible with "in their" (NOUN_PHRASE)
+        // NOUN_PHRASE (for "in their")
         { text: "beliefs.", form: "NOUN_PHRASE" },
         { text: "commitment.", form: "NOUN_PHRASE" }
       ];
@@ -235,6 +237,9 @@
       function allSlotsFilled() {
         return [...slots.children].every(s => s.textContent && s.textContent.length === 1);
       }
+      // ─────────────
+      // Step 3 helpers
+      // ─────────────
       function clearStep3Selections() {
         starterPick = null;
         finishPick = null;
@@ -249,7 +254,11 @@
           const b = document.createElement("button");
           b.type = "button";
           b.className = "chip";
-          b.textContent = item.text;
+
+          // robust: supports {text:"..."} or "..."
+          const label = (typeof item === "string") ? item : (item?.text || "");
+          b.textContent = label;
+
           b.setAttribute("aria-pressed", getPressed(idx) ? "true" : "false");
           b.addEventListener("click", () => onPick(idx));
           container.appendChild(b);
@@ -271,15 +280,29 @@
         updateStep3UI();
       }
 
+      function normalizeFinish(f) {
+        // Safety: if a string ever slips in, treat it as CLAUSE.
+        if (typeof f === "string") return { text: f, form: "CLAUSE" };
+        return f;
+      }
+
+      function normalizeStarter(s) {
+        // Safety: if a string ever slips in, treat it as CLAUSE starter.
+        if (typeof s === "string") return { text: s, accepts: ["CLAUSE"] };
+        return s;
+      }
+
       function getCompatibleFinishesForStarter(starterObj) {
-        return FINISHES.filter(f => starterObj.accepts.includes(f.form));
+        const s = normalizeStarter(starterObj);
+        const accepts = Array.isArray(s.accepts) ? s.accepts : [];
+        return FINISHES.map(normalizeFinish).filter(f => accepts.includes(f.form));
       }
 
       function updateStep3UI() {
         // Starters
         renderChoices(
           ws3Starters,
-          STARTERS,
+          STARTERS.map(normalizeStarter),
           (i) => starterPick === i,
           (i) => {
             starterPick = i;
@@ -290,10 +313,9 @@
           }
         );
 
-        // Finishes filtered by grammar compatibility
-        const finishList = (starterPick === null)
-          ? []
-          : getCompatibleFinishesForStarter(STARTERS[starterPick]);
+        // Finishes (filtered)
+        const starterObj = (starterPick === null) ? null : normalizeStarter(STARTERS[starterPick]);
+        const finishList = starterObj ? getCompatibleFinishesForStarter(starterObj) : [];
 
         renderChoices(
           ws3Finishes,
@@ -301,15 +323,16 @@
           (i) => finishPick === i,
           (i) => {
             if (starterPick === null) return;
+
+            const s = normalizeStarter(STARTERS[starterPick]);
+            const compatible = getCompatibleFinishesForStarter(s);
+            const picked = compatible[i];
+
+            if (!picked) return;
+
             finishPick = i;
 
-            const starter = STARTERS[starterPick];
-            const pickedFinish = finishList[finishPick];
-
-            if (!pickedFinish) return;
-
-            const sentence = starter.text + pickedFinish.text;
-
+            const sentence = s.text + picked.text;
             ws3ResultText.textContent = sentence;
             ws3ResultBox.style.display = "block";
             ws3Confirm.textContent = "Nice. This sentence is grammatically correct.";
@@ -318,6 +341,9 @@
         );
       }
 
+      // ─────────────
+      // Step 2 gameplay
+      // ─────────────
       function buildTiles() {
         const letters = shuffle(WORD.split(""));
         letters.forEach((letter) => {
