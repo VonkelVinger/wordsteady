@@ -26,6 +26,7 @@
     .btn{display:inline-block;padding:10px 14px;border-radius:12px;background:var(--btn);
       color:var(--btnText);text-decoration:none;font-weight:600}
     .btn.secondary{background:transparent;color:var(--text);border:1px solid var(--line)}
+    .btn[aria-disabled="true"]{opacity:.55;pointer-events:none}
     .row{display:flex;gap:10px;flex-wrap:wrap}
 
     .reveal{
@@ -125,7 +126,6 @@
         <p id="feedback" class="feedback"></p>
       </div>
       <div class="divider"></div>
-
       <h2>Step 3: Use it</h2>
       <p class="lockedNote" id="ws3LockedNote">Complete Step 2 to unlock Step 3.</p>
 
@@ -163,7 +163,7 @@
       <p>If you recognise this word later today, the session worked.</p>
 
       <div class="row" style="margin-top:14px;">
-        <a class="btn" href="./index.html">DONE FOR TODAY</a>
+        <a id="doneBtn" class="btn" href="./index.html" aria-disabled="true">DONE FOR TODAY</a>
         <a class="btn secondary" href="./how-it-works.html">Why this works</a>
       </div>
     </div>
@@ -172,6 +172,31 @@
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const WORD = "STEADFAST";
+
+      // ──────────────────────────────
+      // Daily session persistence (local)
+      // ──────────────────────────────
+      function ymdLocal() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+      const SESSION_KEY = `ws-play-${ymdLocal()}-${WORD}`;
+
+      function saveState(state) {
+        try { localStorage.setItem(SESSION_KEY, JSON.stringify(state)); } catch {}
+      }
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(SESSION_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+      }
+      function clearState() {
+        try { localStorage.removeItem(SESSION_KEY); } catch {}
+      }
 
       // Step 2 elements
       const reveal = document.getElementById("reveal");
@@ -192,8 +217,14 @@
       const ws3Confirm = document.getElementById("ws3Confirm");
       const ws3Challenge = document.getElementById("ws3Challenge");
       const ws3Score = document.getElementById("ws3Score");
+      const doneBtn = document.getElementById("doneBtn");
+
+      function setDoneEnabled(enabled) {
+        doneBtn.setAttribute("aria-disabled", enabled ? "false" : "true");
+      }
 
       let started = false;
+      let step2Done = false;
 
       // Step 3 completion
       const STEP3_TARGET = 2;
@@ -206,14 +237,6 @@
 
       // Currently displayed finishes (includes distractors in challenge mode)
       let displayedFinishes = [];
-
-      // ─────────────────────────────────────────────
-      // STEP 3 — TYPED SENTENCE BUILDER (FORM + TENSE)
-      // ─────────────────────────────────────────────
-      // RULES:
-      //  - starter.accepts[] must include finish.form
-      //  - if finish.form === "CLAUSE", starter.tense must match finish.tense
-
       const STARTERS = [
         { text: "She remained steadfast when ", accepts: ["CLAUSE"], tense: "PAST" },
         { text: "I try to be steadfast when ", accepts: ["CLAUSE"], tense: "PRESENT" },
@@ -273,6 +296,30 @@
           ws3Score.textContent = prog;
         }
       }
+
+      function snapshot() {
+        const slotLetters = [...slots.children].map(s => (s.textContent || ""));
+        const bankLetters = [...bank.children].map(t => (t.textContent || ""));
+
+        saveState({
+          started,
+          step2Done,
+          revealDisabled: reveal.disabled,
+          buildAreaVisible: buildArea.style.display === "block",
+          slotLetters,
+          bankLetters,
+          feedbackText: feedback.textContent || "",
+          feedbackOk: feedback.classList.contains("ok"),
+
+          // Step 3
+          challenge: Boolean(ws3Challenge.checked),
+          step3Correct,
+          step3Done,
+          attempts,
+          correct
+        });
+      }
+
       // ─────────────
       // Step 2 helpers
       // ─────────────
@@ -283,11 +330,12 @@
         feedback.classList.remove("ok");
       }
 
-      function buildSlots() {
+      function buildSlots(slotLetters) {
+        slots.innerHTML = "";
         for (let i = 0; i < WORD.length; i++) {
           const s = document.createElement("div");
           s.className = "slot";
-          s.textContent = "";
+          s.textContent = (slotLetters && slotLetters[i]) ? slotLetters[i] : "";
           slots.appendChild(s);
         }
       }
@@ -343,15 +391,18 @@
         ws3LockedNote.textContent = "Complete Step 2 to unlock Step 3.";
         resetStep3Progress();
         clearStep3Selections();
+        setDoneEnabled(false);
         updateStep3UI();
+        snapshot();
       }
 
       function unlockStep3() {
         ws3LockedNote.style.display = "none";
         ws3.style.display = "block";
-        resetStep3Progress();
-        clearStep3Selections();
+        // Only reset progress if this is a fresh unlock (not a restore)
+        updateScoreUI();
         updateStep3UI();
+        snapshot();
       }
 
       function isCompatible(starterObj, finishObj) {
@@ -382,7 +433,6 @@
         }
         return out;
       }
-
       function buildDistractors(starterObj, correctList) {
         const distractors = [];
         const accepts = Array.isArray(starterObj.accepts) ? starterObj.accepts : [];
@@ -442,7 +492,9 @@
       function markStep3Done() {
         step3Done = true;
         ws3Confirm.textContent = "✅ Step 3 complete — you used the word correctly twice.";
+        setDoneEnabled(true);
         updateScoreUI();
+        snapshot();
       }
 
       function updateStep3UI() {
@@ -456,12 +508,11 @@
           (i) => {
             starterPick = i;
             finishPick = null;
-            ws3Confirm.textContent = step3Done
-              ? "✅ Step 3 complete — you used the word correctly twice."
-              : "";
+            ws3Confirm.textContent = step3Done ? "✅ Step 3 complete — you used the word correctly twice." : "";
             ws3ResultBox.style.display = "none";
             ws3ResultText.textContent = "";
             updateStep3UI();
+            snapshot();
           },
           disableAll
         );
@@ -513,6 +564,7 @@
               ws3Confirm.textContent = hintForWrong(s, picked);
               updateScoreUI();
               updateStep3UI();
+              snapshot();
               return;
             }
 
@@ -529,6 +581,7 @@
               markStep3Done();
             } else {
               ws3Confirm.textContent = ws3Challenge.checked ? "Correct ✅" : "Nice. This sentence is grammatically correct.";
+              snapshot();
             }
 
             updateStep3UI();
@@ -536,11 +589,12 @@
           disableAll
         );
       }
+
       // ─────────────
       // Step 2 gameplay
       // ─────────────
-      function buildTiles() {
-        const letters = shuffle(WORD.split(""));
+      function renderBankFromLetters(letters) {
+        bank.innerHTML = "";
         letters.forEach((letter) => {
           const t = document.createElement("div");
           t.className = "tile";
@@ -548,23 +602,28 @@
 
           t.addEventListener("click", () => {
             if (!started) return;
+            if (step2Done) return;
 
             const empty = [...slots.children].find(s => !s.textContent);
             if (!empty) return;
 
             empty.textContent = letter;
             t.remove();
+            snapshot();
 
             if (!allSlotsFilled()) return;
 
             const built = currentBuilt();
             if (built === WORD) {
+              step2Done = true;
               feedback.textContent = "Correct. You’ve built the word.";
               feedback.classList.add("ok");
               unlockStep3();
+              snapshot();
             } else {
               feedback.textContent = "Not quite. Reset and try again.";
               lockStep3();
+              snapshot();
             }
           });
 
@@ -572,37 +631,102 @@
         });
       }
 
+      function buildTilesRandom() {
+        const letters = shuffle(WORD.split(""));
+        renderBankFromLetters(letters);
+      }
+
       function enterBuildState() {
         started = true;
+        step2Done = false;
         reveal.disabled = true;
         buildArea.style.display = "block";
 
         lockStep3();
         clearStep2UI();
         buildSlots();
-        buildTiles();
+        buildTilesRandom();
+        snapshot();
       }
 
       function doReset() {
         if (!started) return;
+        step2Done = false;
+
         lockStep3();
         clearStep2UI();
         buildSlots();
-        buildTiles();
+        buildTilesRandom();
+        snapshot();
       }
 
       function doStartOver() {
         started = false;
+        step2Done = false;
+
         reveal.disabled = false;
         buildArea.style.display = "none";
+
+        lockStep3();
+        clearStep2UI();
+        setDoneEnabled(false);
+        clearState();
+      }
+
+      // ─────────────
+      // Restore / Init
+      // ─────────────
+      setDoneEnabled(false);
+
+      const saved = loadState();
+      if (saved) {
+        started = Boolean(saved.started);
+        step2Done = Boolean(saved.step2Done);
+
+        ws3Challenge.checked = Boolean(saved.challenge);
+        step3Correct = Number(saved.step3Correct || 0);
+        step3Done = Boolean(saved.step3Done);
+        attempts = Number(saved.attempts || 0);
+        correct = Number(saved.correct || 0);
+
+        // restore Step 2 UI
+        reveal.disabled = Boolean(saved.revealDisabled);
+        buildArea.style.display = saved.buildAreaVisible ? "block" : "none";
+
+        const slotLetters = Array.isArray(saved.slotLetters) ? saved.slotLetters : null;
+        const bankLetters = Array.isArray(saved.bankLetters) ? saved.bankLetters : null;
+
+        if (started) {
+          buildSlots(slotLetters);
+          renderBankFromLetters(bankLetters && bankLetters.length ? bankLetters : shuffle(WORD.split("")));
+          feedback.textContent = saved.feedbackText || "";
+          if (saved.feedbackOk) feedback.classList.add("ok");
+        } else {
+          clearStep2UI();
+        }
+
+        updateScoreUI();
+
+        // restore Step 3 lock/unlock
+        if (step2Done) {
+          ws3.style.display = "block";
+          ws3LockedNote.style.display = "none";
+          updateStep3UI();
+        } else {
+          lockStep3();
+        }
+
+        setDoneEnabled(step3Done);
+      } else {
+        updateScoreUI();
+        // Start in clean state
+        buildArea.style.display = "none";
+        reveal.disabled = false;
         lockStep3();
         clearStep2UI();
       }
 
-      // Init
-      updateScoreUI();
-      doStartOver();
-
+      // Events
       reveal.addEventListener("click", () => {
         if (started) return;
         enterBuildState();
@@ -612,7 +736,6 @@
       startOver.addEventListener("click", doStartOver);
 
       ws3Challenge.addEventListener("change", () => {
-        // Keep progress; just re-render the options.
         ws3Confirm.textContent = step3Done
           ? "✅ Step 3 complete — you used the word correctly twice."
           : "";
@@ -621,6 +744,7 @@
         finishPick = null;
         updateScoreUI();
         updateStep3UI();
+        snapshot();
       });
     });
   </script>
