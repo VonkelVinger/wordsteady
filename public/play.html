@@ -1,4 +1,3 @@
-<!-- play.html — COMPLETE (single file, single script) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -110,7 +109,6 @@
 
         <p id="feedback" class="feedback"></p>
       </div>
-
       <div class="divider"></div>
 
       <h2>Step 3: Use it</h2>
@@ -172,27 +170,36 @@
 
       let started = false;
 
-      // ──────────────────────────────
-      // STEP 3 — TYPED SENTENCE BUILDER
-      // ──────────────────────────────
-      // starter.accepts must include finish.form
+      // ─────────────────────────────────────────────
+      // STEP 3 — TYPED SENTENCE BUILDER (FORM + TENSE)
+      // ─────────────────────────────────────────────
+      // RULES:
+      //  - starter.accepts[] must include finish.form
+      //  - if finish.form === "CLAUSE", starter.tense must match finish.tense
 
       const STARTERS = [
-        { text: "She remained steadfast when ", accepts: ["CLAUSE"] },
+        { text: "She remained steadfast when ", accepts: ["CLAUSE"], tense: "PAST" },
+        { text: "I try to be steadfast when ", accepts: ["CLAUSE"], tense: "PRESENT" },
+
         { text: "He stayed steadfast despite ", accepts: ["GERUND"] },
         { text: "They were steadfast in their ", accepts: ["NOUN_PHRASE"] },
-        { text: "A steadfast person will ", accepts: ["VP"] },
-        { text: "I try to be steadfast when ", accepts: ["CLAUSE"] }
+        { text: "A steadfast person will ", accepts: ["VP"] }
       ];
 
       const FINISHES = [
-        // CLAUSE (for "when")
-{ text: "things get difficult.", form: "CLAUSE" },
-{ text: "others change their minds.", form: "CLAUSE" },
-{ text: "it would be easier to quit.", form: "CLAUSE" },
-{ text: "the pressure is intense.", form: "CLAUSE" },
-{ text: "it matters most.", form: "CLAUSE" },a
-        
+        // CLAUSE — PRESENT (habits / general truths)
+        { text: "things get difficult.", form: "CLAUSE", tense: "PRESENT" },
+        { text: "others change their minds.", form: "CLAUSE", tense: "PRESENT" },
+        { text: "the pressure is intense.", form: "CLAUSE", tense: "PRESENT" },
+        { text: "it matters most.", form: "CLAUSE", tense: "PRESENT" },
+        { text: "it would be easier to quit.", form: "CLAUSE", tense: "PRESENT" },
+
+        // CLAUSE — PAST (specific past events)
+        { text: "things got difficult.", form: "CLAUSE", tense: "PAST" },
+        { text: "others changed their minds.", form: "CLAUSE", tense: "PAST" },
+        { text: "the pressure was intense.", form: "CLAUSE", tense: "PAST" },
+        { text: "it mattered most.", form: "CLAUSE", tense: "PAST" },
+        { text: "it would have been easier to quit.", form: "CLAUSE", tense: "PAST" },
 
         // GERUND (for "despite")
         { text: "things getting difficult.", form: "GERUND" },
@@ -221,7 +228,6 @@
         }
         return a;
       }
-
       // ─────────────
       // Step 2 helpers
       // ─────────────
@@ -278,7 +284,7 @@
         ws3LockedNote.style.display = "block";
         ws3LockedNote.textContent = "Complete Step 2 to unlock Step 3.";
         clearStep3Selections();
-        updateStep3UI();
+        updateStep3UI(); // safe: renders starters, empty finishes until starter picked
       }
 
       function unlockStep3() {
@@ -288,13 +294,24 @@
         updateStep3UI();
       }
 
-      function getCompatibleFinishesForStarter(starterObj) {
+      function isCompatible(starterObj, finishObj) {
         const accepts = Array.isArray(starterObj.accepts) ? starterObj.accepts : [];
-        return FINISHES.filter(f => accepts.includes(f.form));
+        if (!accepts.includes(finishObj.form)) return false;
+
+        if (finishObj.form === "CLAUSE") {
+          const stTense = starterObj.tense || null;
+          const fnTense = finishObj.tense || null;
+          return Boolean(stTense && fnTense && stTense === fnTense);
+        }
+        return true;
+      }
+
+      function getCompatibleFinishesForStarter(starterObj) {
+        return FINISHES.filter(f => isCompatible(starterObj, f));
       }
 
       function updateStep3UI() {
-        // Starters
+        // Starters (always render)
         renderChoices(
           ws3Starters,
           STARTERS,
@@ -308,7 +325,7 @@
           }
         );
 
-        // Finishes (filtered)
+        // Finishes (filtered by compatibility)
         const starterObj = (starterPick === null) ? null : STARTERS[starterPick];
         const finishList = starterObj ? getCompatibleFinishesForStarter(starterObj) : [];
 
@@ -334,7 +351,6 @@
           }
         );
       }
-
       // ─────────────
       // Step 2 gameplay
       // ─────────────
