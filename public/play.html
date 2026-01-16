@@ -54,6 +54,17 @@
     .feedback{margin-top:10px;color:var(--muted);min-height:20px}
     .ok{color:var(--text)}
 
+    .doneLine{
+      margin-top:10px;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:var(--soft);
+      color:var(--text);
+      font-size:13px;
+      display:none;
+    }
+
     .lockedNote{margin-top:6px;color:var(--muted);font-size:13px}
     .ws3{display:none;margin-top:10px}
     .choiceGrid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -82,7 +93,26 @@
     .score{
       font-size:13px;color:var(--muted);
       white-space:nowrap;
+      text-align:right;
     }
+    .saved{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:4px;
+      text-align:right;
+      min-height:16px;
+    }
+
+    .ws3DonePanel{
+      display:none;
+      margin-top:12px;
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:var(--soft);
+    }
+    .ws3DoneTitle{margin:0 0 4px;font-weight:700}
+    .ws3DoneSub{margin:0;color:var(--muted);font-size:13px}
   </style>
 </head>
 
@@ -118,6 +148,8 @@
         <div id="slots" class="slots" aria-label="Slots"></div>
         <div id="bank" class="bank" aria-label="Letter tiles"></div>
 
+        <p id="step2DoneLine" class="doneLine">✅ Step 2 complete — you built the word.</p>
+
         <div class="actions">
           <button id="reset" class="btn secondary" type="button">Reset</button>
           <button id="startOver" class="btn secondary" type="button">Start over</button>
@@ -125,6 +157,7 @@
 
         <p id="feedback" class="feedback"></p>
       </div>
+
       <div class="divider"></div>
       <h2>Step 3: Use it</h2>
       <p class="lockedNote" id="ws3LockedNote">Complete Step 2 to unlock Step 3.</p>
@@ -137,25 +170,35 @@
             <input id="ws3Challenge" type="checkbox" />
             Challenge mode (include tricky options)
           </label>
-          <div class="score" id="ws3Score">Progress: 0 / 2</div>
+          <div class="score">
+            <div id="ws3Score">Progress: 0 / 2</div>
+            <div id="wsSaved" class="saved"></div>
+          </div>
         </div>
 
-        <div>
-          <p class="resultLabel" style="margin-top:10px;">Starters</p>
-          <div class="choiceGrid" id="ws3Starters"></div>
+        <div id="ws3WorkArea">
+          <div>
+            <p class="resultLabel" style="margin-top:10px;">Starters</p>
+            <div class="choiceGrid" id="ws3Starters"></div>
+          </div>
+
+          <div>
+            <p class="resultLabel" style="margin-top:12px;">Finishes</p>
+            <div class="choiceGrid" id="ws3Finishes"></div>
+          </div>
+
+          <div class="resultBox" id="ws3ResultBox" style="display:none;">
+            <p class="resultLabel">Your sentence</p>
+            <p class="resultText" id="ws3ResultText"></p>
+          </div>
+
+          <p class="feedback ok" id="ws3Confirm" style="min-height:20px;margin-top:10px;"></p>
         </div>
 
-        <div>
-          <p class="resultLabel" style="margin-top:12px;">Finishes</p>
-          <div class="choiceGrid" id="ws3Finishes"></div>
+        <div id="ws3DonePanel" class="ws3DonePanel">
+          <p class="ws3DoneTitle">✅ Step 3 complete</p>
+          <p class="ws3DoneSub">Nice work — come back tomorrow for a new word.</p>
         </div>
-
-        <div class="resultBox" id="ws3ResultBox" style="display:none;">
-          <p class="resultLabel">Your sentence</p>
-          <p class="resultText" id="ws3ResultText"></p>
-        </div>
-
-        <p class="feedback ok" id="ws3Confirm" style="min-height:20px;margin-top:10px;"></p>
       </div>
 
       <div class="divider"></div>
@@ -206,6 +249,7 @@
       const feedback = document.getElementById("feedback");
       const reset = document.getElementById("reset");
       const startOver = document.getElementById("startOver");
+      const step2DoneLine = document.getElementById("step2DoneLine");
 
       // Step 3 elements
       const ws3 = document.getElementById("ws3");
@@ -217,10 +261,25 @@
       const ws3Confirm = document.getElementById("ws3Confirm");
       const ws3Challenge = document.getElementById("ws3Challenge");
       const ws3Score = document.getElementById("ws3Score");
+      const wsSaved = document.getElementById("wsSaved");
+      const ws3WorkArea = document.getElementById("ws3WorkArea");
+      const ws3DonePanel = document.getElementById("ws3DonePanel");
+
       const doneBtn = document.getElementById("doneBtn");
 
       function setDoneEnabled(enabled) {
         doneBtn.setAttribute("aria-disabled", enabled ? "false" : "true");
+      }
+
+      function setSavedMessage(msg) {
+        wsSaved.textContent = msg || "";
+      }
+
+      let savedTimer = null;
+      function pulseSaved() {
+        setSavedMessage("Saved");
+        if (savedTimer) clearTimeout(savedTimer);
+        savedTimer = setTimeout(() => setSavedMessage(""), 1200);
       }
 
       let started = false;
@@ -318,6 +377,19 @@
           attempts,
           correct
         });
+
+        pulseSaved();
+      }
+
+      function showStep2DoneUI(on) {
+        step2DoneLine.style.display = on ? "block" : "none";
+        bank.style.display = on ? "none" : "flex";
+      }
+
+      function showStep3DoneUI(on) {
+        ws3DonePanel.style.display = on ? "block" : "none";
+        ws3WorkArea.style.display = on ? "none" : "block";
+        ws3Challenge.disabled = on; // lock challenge toggle once complete
       }
 
       // ─────────────
@@ -328,6 +400,7 @@
         bank.innerHTML = "";
         feedback.textContent = "";
         feedback.classList.remove("ok");
+        showStep2DoneUI(false);
       }
 
       function buildSlots(slotLetters) {
@@ -356,6 +429,7 @@
         step3Done = false;
         attempts = 0;
         correct = 0;
+        showStep3DoneUI(false);
         updateScoreUI();
       }
 
@@ -399,7 +473,6 @@
       function unlockStep3() {
         ws3LockedNote.style.display = "none";
         ws3.style.display = "block";
-        // Only reset progress if this is a fresh unlock (not a restore)
         updateScoreUI();
         updateStep3UI();
         snapshot();
@@ -492,6 +565,7 @@
       function markStep3Done() {
         step3Done = true;
         ws3Confirm.textContent = "✅ Step 3 complete — you used the word correctly twice.";
+        showStep3DoneUI(true);
         setDoneEnabled(true);
         updateScoreUI();
         snapshot();
@@ -500,7 +574,6 @@
       function updateStep3UI() {
         const disableAll = step3Done;
 
-        // Starters
         renderChoices(
           ws3Starters,
           STARTERS,
@@ -538,7 +611,6 @@
         listForDisplay = uniqueByText(listForDisplay);
         displayedFinishes = shuffle(listForDisplay.slice());
 
-        // Finishes
         renderChoices(
           ws3Finishes,
           displayedFinishes,
@@ -551,7 +623,6 @@
             const picked = displayedFinishes[i];
             if (!picked) return;
 
-            // Count attempts only in challenge mode
             if (ws3Challenge.checked) {
               attempts += 1;
               if (picked._isCorrect) correct += 1;
@@ -559,7 +630,7 @@
 
             if (!picked._isCorrect) {
               finishPick = null;
-              ws3ResultBox.style.display = "none"; // never display wrong sentence
+              ws3ResultBox.style.display = "none";
               ws3ResultText.textContent = "";
               ws3Confirm.textContent = hintForWrong(s, picked);
               updateScoreUI();
@@ -568,7 +639,6 @@
               return;
             }
 
-            // Correct answer
             step3Correct += 1;
             updateScoreUI();
 
@@ -618,6 +688,7 @@
               step2Done = true;
               feedback.textContent = "Correct. You’ve built the word.";
               feedback.classList.add("ok");
+              showStep2DoneUI(true);
               unlockStep3();
               snapshot();
             } else {
@@ -670,6 +741,8 @@
         lockStep3();
         clearStep2UI();
         setDoneEnabled(false);
+        showStep3DoneUI(false);
+        setSavedMessage("");
         clearState();
       }
 
@@ -677,6 +750,7 @@
       // Restore / Init
       // ─────────────
       setDoneEnabled(false);
+      showStep3DoneUI(false);
 
       const saved = loadState();
       if (saved) {
@@ -689,7 +763,6 @@
         attempts = Number(saved.attempts || 0);
         correct = Number(saved.correct || 0);
 
-        // restore Step 2 UI
         reveal.disabled = Boolean(saved.revealDisabled);
         buildArea.style.display = saved.buildAreaVisible ? "block" : "none";
 
@@ -705,9 +778,10 @@
           clearStep2UI();
         }
 
+        showStep2DoneUI(step2Done);
+
         updateScoreUI();
 
-        // restore Step 3 lock/unlock
         if (step2Done) {
           ws3.style.display = "block";
           ws3LockedNote.style.display = "none";
@@ -716,10 +790,14 @@
           lockStep3();
         }
 
+        if (step3Done) showStep3DoneUI(true);
         setDoneEnabled(step3Done);
+
+        setSavedMessage("Saved earlier");
+        if (savedTimer) clearTimeout(savedTimer);
+        savedTimer = setTimeout(() => setSavedMessage(""), 1200);
       } else {
         updateScoreUI();
-        // Start in clean state
         buildArea.style.display = "none";
         reveal.disabled = false;
         lockStep3();
@@ -736,9 +814,8 @@
       startOver.addEventListener("click", doStartOver);
 
       ws3Challenge.addEventListener("change", () => {
-        ws3Confirm.textContent = step3Done
-          ? "✅ Step 3 complete — you used the word correctly twice."
-          : "";
+        if (step3Done) return; // locked when complete, but belt+braces
+        ws3Confirm.textContent = "";
         ws3ResultBox.style.display = "none";
         ws3ResultText.textContent = "";
         finishPick = null;
