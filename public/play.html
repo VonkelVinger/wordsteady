@@ -1,3 +1,4 @@
+<!-- play.html — COMPLETE (single file, single script) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -109,6 +110,7 @@
 
         <p id="feedback" class="feedback"></p>
       </div>
+
       <div class="divider"></div>
 
       <h2>Step 3: Use it</h2>
@@ -179,12 +181,12 @@
         { text: "She remained steadfast when ", accepts: ["CLAUSE"] },
         { text: "He stayed steadfast despite ", accepts: ["GERUND"] },
         { text: "They were steadfast in their ", accepts: ["NOUN_PHRASE"] },
-        { text: "A steadfast person will ", accepts: ["CLAUSE"] },
+        { text: "A steadfast person will ", accepts: ["VP"] },
         { text: "I try to be steadfast when ", accepts: ["CLAUSE"] }
       ];
 
       const FINISHES = [
-        // CLAUSE (for "when" and "will")
+        // CLAUSE (for "when")
         { text: "things got difficult.", form: "CLAUSE" },
         { text: "others changed their minds.", form: "CLAUSE" },
         { text: "it would have been easier to quit.", form: "CLAUSE" },
@@ -194,10 +196,18 @@
         // GERUND (for "despite")
         { text: "things getting difficult.", form: "GERUND" },
         { text: "the pressure increasing.", form: "GERUND" },
+        { text: "the criticism growing louder.", form: "GERUND" },
 
         // NOUN_PHRASE (for "in their")
         { text: "beliefs.", form: "NOUN_PHRASE" },
-        { text: "commitment.", form: "NOUN_PHRASE" }
+        { text: "commitment.", form: "NOUN_PHRASE" },
+        { text: "principles.", form: "NOUN_PHRASE" },
+
+        // VP (verb phrase, for "will")
+        { text: "keep going.", form: "VP" },
+        { text: "stand firm.", form: "VP" },
+        { text: "follow through.", form: "VP" },
+        { text: "remain calm under pressure.", form: "VP" }
       ];
 
       let starterPick = null;
@@ -237,6 +247,7 @@
       function allSlotsFilled() {
         return [...slots.children].every(s => s.textContent && s.textContent.length === 1);
       }
+
       // ─────────────
       // Step 3 helpers
       // ─────────────
@@ -254,11 +265,7 @@
           const b = document.createElement("button");
           b.type = "button";
           b.className = "chip";
-
-          // robust: supports {text:"..."} or "..."
-          const label = (typeof item === "string") ? item : (item?.text || "");
-          b.textContent = label;
-
+          b.textContent = item.text;
           b.setAttribute("aria-pressed", getPressed(idx) ? "true" : "false");
           b.addEventListener("click", () => onPick(idx));
           container.appendChild(b);
@@ -280,29 +287,16 @@
         updateStep3UI();
       }
 
-      function normalizeFinish(f) {
-        // Safety: if a string ever slips in, treat it as CLAUSE.
-        if (typeof f === "string") return { text: f, form: "CLAUSE" };
-        return f;
-      }
-
-      function normalizeStarter(s) {
-        // Safety: if a string ever slips in, treat it as CLAUSE starter.
-        if (typeof s === "string") return { text: s, accepts: ["CLAUSE"] };
-        return s;
-      }
-
       function getCompatibleFinishesForStarter(starterObj) {
-        const s = normalizeStarter(starterObj);
-        const accepts = Array.isArray(s.accepts) ? s.accepts : [];
-        return FINISHES.map(normalizeFinish).filter(f => accepts.includes(f.form));
+        const accepts = Array.isArray(starterObj.accepts) ? starterObj.accepts : [];
+        return FINISHES.filter(f => accepts.includes(f.form));
       }
 
       function updateStep3UI() {
         // Starters
         renderChoices(
           ws3Starters,
-          STARTERS.map(normalizeStarter),
+          STARTERS,
           (i) => starterPick === i,
           (i) => {
             starterPick = i;
@@ -314,7 +308,7 @@
         );
 
         // Finishes (filtered)
-        const starterObj = (starterPick === null) ? null : normalizeStarter(STARTERS[starterPick]);
+        const starterObj = (starterPick === null) ? null : STARTERS[starterPick];
         const finishList = starterObj ? getCompatibleFinishesForStarter(starterObj) : [];
 
         renderChoices(
@@ -324,10 +318,9 @@
           (i) => {
             if (starterPick === null) return;
 
-            const s = normalizeStarter(STARTERS[starterPick]);
+            const s = STARTERS[starterPick];
             const compatible = getCompatibleFinishesForStarter(s);
             const picked = compatible[i];
-
             if (!picked) return;
 
             finishPick = i;
