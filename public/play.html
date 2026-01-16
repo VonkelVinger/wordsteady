@@ -305,31 +305,26 @@
       ];
 
       const FINISHES = [
-        // CLAUSE — PRESENT (habits / general truths)
         { text: "things get difficult.", form: "CLAUSE", tense: "PRESENT" },
         { text: "others change their minds.", form: "CLAUSE", tense: "PRESENT" },
         { text: "the pressure is intense.", form: "CLAUSE", tense: "PRESENT" },
         { text: "it matters most.", form: "CLAUSE", tense: "PRESENT" },
         { text: "it would be easier to quit.", form: "CLAUSE", tense: "PRESENT" },
 
-        // CLAUSE — PAST (specific past events)
         { text: "things got difficult.", form: "CLAUSE", tense: "PAST" },
         { text: "others changed their minds.", form: "CLAUSE", tense: "PAST" },
         { text: "the pressure was intense.", form: "CLAUSE", tense: "PAST" },
         { text: "it mattered most.", form: "CLAUSE", tense: "PAST" },
         { text: "it would have been easier to quit.", form: "CLAUSE", tense: "PAST" },
 
-        // GERUND (for "despite")
         { text: "things getting difficult.", form: "GERUND" },
         { text: "the pressure increasing.", form: "GERUND" },
         { text: "the criticism growing louder.", form: "GERUND" },
 
-        // NOUN_PHRASE (for "in their")
         { text: "beliefs.", form: "NOUN_PHRASE" },
         { text: "commitment.", form: "NOUN_PHRASE" },
         { text: "principles.", form: "NOUN_PHRASE" },
 
-        // VP (verb phrase, for "will")
         { text: "keep going.", form: "VP" },
         { text: "stand firm.", form: "VP" },
         { text: "follow through.", form: "VP" },
@@ -356,6 +351,14 @@
         }
       }
 
+      function currentBuilt() {
+        return [...slots.children].map(s => s.textContent).join("");
+      }
+
+      function allSlotsFilled() {
+        return [...slots.children].every(s => s.textContent && s.textContent.length === 1);
+      }
+
       function snapshot() {
         const slotLetters = [...slots.children].map(s => (s.textContent || ""));
         const bankLetters = [...bank.children].map(t => (t.textContent || ""));
@@ -370,7 +373,6 @@
           feedbackText: feedback.textContent || "",
           feedbackOk: feedback.classList.contains("ok"),
 
-          // Step 3
           challenge: Boolean(ws3Challenge.checked),
           step3Correct,
           step3Done,
@@ -389,7 +391,7 @@
       function showStep3DoneUI(on) {
         ws3DonePanel.style.display = on ? "block" : "none";
         ws3WorkArea.style.display = on ? "none" : "block";
-        ws3Challenge.disabled = on; // lock challenge toggle once complete
+        ws3Challenge.disabled = on;
       }
 
       // ─────────────
@@ -413,12 +415,23 @@
         }
       }
 
-      function currentBuilt() {
-        return [...slots.children].map(s => s.textContent).join("");
-      }
-
-      function allSlotsFilled() {
-        return [...slots.children].every(s => s.textContent && s.textContent.length === 1);
+      // IMPORTANT: validate step2Done from the actual slots
+      function validateStep2DoneFromSlots() {
+        const built = currentBuilt();
+        if (built === WORD) {
+          step2Done = true;
+          feedback.textContent = "Correct. You’ve built the word.";
+          feedback.classList.add("ok");
+          showStep2DoneUI(true);
+        } else {
+          step2Done = false;
+          feedback.classList.remove("ok");
+          showStep2DoneUI(false);
+          // keep feedback as-is unless it claims completion
+          if ((feedback.textContent || "").toLowerCase().includes("built the word")) {
+            feedback.textContent = "";
+          }
+        }
       }
 
       // ─────────────
@@ -458,7 +471,6 @@
           container.appendChild(b);
         });
       }
-
       function lockStep3() {
         ws3.style.display = "none";
         ws3LockedNote.style.display = "block";
@@ -506,11 +518,11 @@
         }
         return out;
       }
+
       function buildDistractors(starterObj, correctList) {
         const distractors = [];
         const accepts = Array.isArray(starterObj.accepts) ? starterObj.accepts : [];
 
-        // (1) Wrong tense distractor (CLAUSE only)
         if (accepts.includes("CLAUSE")) {
           const stTense = starterObj.tense;
           const opposite = (stTense === "PAST") ? "PRESENT" : (stTense === "PRESENT" ? "PAST" : null);
@@ -523,7 +535,6 @@
           }
         }
 
-        // (2) Wrong form distractor
         const forms = ["CLAUSE", "GERUND", "NOUN_PHRASE", "VP"];
         const wrongForms = forms.filter(fr => !accepts.includes(fr));
         if (wrongForms.length) {
@@ -643,8 +654,7 @@
             updateScoreUI();
 
             finishPick = i;
-            const sentence = s.text + picked.text;
-            ws3ResultText.textContent = sentence;
+            ws3ResultText.textContent = s.text + picked.text;
             ws3ResultBox.style.display = "block";
 
             if (step3Correct >= STEP3_TARGET) {
@@ -700,11 +710,15 @@
 
           bank.appendChild(t);
         });
+
+        // If bank is empty and we're not done, something's off — rebuild safely
+        if (!step2Done && bank.children.length === 0) {
+          renderBankFromLetters(shuffle(WORD.split("")));
+        }
       }
 
       function buildTilesRandom() {
-        const letters = shuffle(WORD.split(""));
-        renderBankFromLetters(letters);
+        renderBankFromLetters(shuffle(WORD.split("")));
       }
 
       function enterBuildState() {
@@ -778,7 +792,13 @@
           clearStep2UI();
         }
 
-        showStep2DoneUI(step2Done);
+        // 🔒 KEY FIX: reconcile step2Done with the actual slots
+        validateStep2DoneFromSlots();
+
+        // If saved says done but slots are NOT done, force interactive mode
+        if (!step2Done && started && buildArea.style.display === "block") {
+          showStep2DoneUI(false);
+        }
 
         updateScoreUI();
 
@@ -814,7 +834,7 @@
       startOver.addEventListener("click", doStartOver);
 
       ws3Challenge.addEventListener("change", () => {
-        if (step3Done) return; // locked when complete, but belt+braces
+        if (step3Done) return;
         ws3Confirm.textContent = "";
         ws3ResultBox.style.display = "none";
         ws3ResultText.textContent = "";
