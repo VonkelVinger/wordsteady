@@ -1,3 +1,4 @@
+<!-- play.html — PART 1/2 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -36,7 +37,44 @@
     }
     .reveal:disabled{opacity:.6;cursor:not-allowed}
 
-    .buildArea{display:none;margin-top:12px}
+    /* Word emphasis */
+    .todayWord{
+      font-size:28px;
+      font-weight:700;
+      letter-spacing:0.015em;
+      margin:14px 0 10px;
+      padding:6px 10px;
+      background:#f9fafb;
+      border-radius:8px;
+      text-align:center;
+    }
+
+    /* Step 2 is now always visible; overlay locks it until Step 1 is tapped */
+    .buildArea{
+      margin-top:12px;
+      position:relative;
+    }
+
+    .step2Overlay{
+      position:absolute;
+      inset:0;
+      border-radius:12px;
+      background:rgba(246,247,249,0.92);
+      border:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.4;
+      z-index:5;
+      pointer-events:auto;
+    }
+    .step2Overlay strong{color:var(--text)}
+    .step2Overlay .hint{margin-top:6px;font-size:12px;color:var(--muted)}
+
     .slots,.bank{display:flex;gap:8px;flex-wrap:wrap}
     .slots{margin-top:10px}
     .bank{margin-top:12px}
@@ -113,16 +151,6 @@
     }
     .ws3DoneTitle{margin:0 0 4px;font-weight:700}
     .ws3DoneSub{margin:0;color:var(--muted);font-size:13px}
-
-  .todayWord {
-  font-size: 28px;
-  letter-spacing: 0.02em;
-  margin: 16px 0 12px;
-  padding: 6px 8px;
-  background: #f9fafb;
-  border-radius: 6px;
-  text-align: center;
-}
   </style>
 </head>
 
@@ -139,15 +167,17 @@
       <h1>Today’s word</h1>
       <div class="divider"></div>
 
-<h2 id="wordTitle" class="todayWord">Loading…</h2>
-
+      <h2 id="wordTitle" class="todayWord">Loading…</h2>
       <p><strong>Meaning:</strong> <span id="wordMeaning">Loading…</span></p>
       <p><strong>Example:</strong> <span id="wordExample">Loading…</span></p>
 
       <div class="divider"></div>
 
       <h2>Step 1: Notice</h2>
-      <p>Look carefully at today's word above. When you’re ready, continue with Step 2 by tapping the letters below in the right sequence to build today's word.</p>
+      <p>
+        Look carefully at today's word above. When you’re ready, continue with Step 2 by
+        tapping the letters below in the right sequence to build today's word.
+      </p>
 
       <h2>Step 2: Build the word</h2>
 
@@ -156,6 +186,14 @@
       </div>
 
       <div id="buildArea" class="buildArea" aria-label="Build the word">
+        <!-- Overlay locks Step 2 until Step 1 starts -->
+        <div id="step2LockOverlay" class="step2Overlay" role="note" aria-label="Step 2 locked">
+          <div>
+            Tap the word button above to begin <strong>Step 2</strong>.
+            <div class="hint">Then tap the letter tiles in order.</div>
+          </div>
+        </div>
+
         <div id="slots" class="slots" aria-label="Slots"></div>
         <div id="bank" class="bank" aria-label="Letter tiles"></div>
 
@@ -186,7 +224,7 @@
             <div id="wsSaved" class="saved"></div>
           </div>
         </div>
-
+<!-- play.html — PART 2/2 -->
         <div id="ws3WorkArea">
           <div>
             <p class="resultLabel" style="margin-top:10px;">Starters</p>
@@ -223,10 +261,6 @@
     </div>
   </div>
 
-
-
-<script src="./scripts/play.js" defer></script>
-
-  
+  <script src="./scripts/play.js" defer></script>
 </body>
 </html>
