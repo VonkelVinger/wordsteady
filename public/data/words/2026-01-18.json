@@ -1,0 +1,37 @@
+{
+  "meta": { "id": "2026-01-18", "minutes": 6 },
+  "word": { "text": "RELIABLE", "display": "Reliable" },
+  "meaning": "Able to be trusted to do what is expected.",
+  "example": "This bus service is reliable, even in winter.",
+  "step3Target": 2,
+  "starters": [
+    { "text": "I am reliable when ", "accepts": ["CLAUSE"], "tense": "PRESENT" },
+    { "text": "She is reliable when ", "accepts": ["CLAUSE"], "tense": "PRESENT" },
+    { "text": "They were reliable when ", "accepts": ["CLAUSE"], "tense": "PAST" },
+
+    { "text": "He stayed reliable despite ", "accepts": ["GERUND"] },
+    { "text": "Reliability matters in ", "accepts": ["NOUN_PHRASE"] },
+    { "text": "A reliable system will ", "accepts": ["VP"] }
+  ],
+  "finishes": [
+    { "text": "you need help.", "form": "CLAUSE", "tense": "PRESENT" },
+    { "text": "things go wrong.", "form": "CLAUSE", "tense": "PRESENT" },
+    { "text": "deadlines matter.", "form": "CLAUSE", "tense": "PRESENT" },
+
+    { "text": "you needed help.", "form": "CLAUSE", "tense": "PAST" },
+    { "text": "things went wrong.", "form": "CLAUSE", "tense": "PAST" },
+    { "text": "deadlines mattered.", "form": "CLAUSE", "tense": "PAST" },
+
+    { "text": "missing sleep.", "form": "GERUND" },
+    { "text": "feeling stressed.", "form": "GERUND" },
+    { "text": "working under pressure.", "form": "GERUND" },
+
+    { "text": "friendships.", "form": "NOUN_PHRASE" },
+    { "text": "work.", "form": "NOUN_PHRASE" },
+    { "text": "public services.", "form": "NOUN_PHRASE" },
+
+    { "text": "reduce errors.", "form": "VP" },
+    { "text": "build trust.", "form": "VP" },
+    { "text": "save time.", "form": "VP" }
+  ]
+}
