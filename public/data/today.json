@@ -1,50 +1,36 @@
 {
-  "id": "2026-01-17",
-  "word": "ACCURATE",
+  "meta": { "id": "2026-01-17", "minutes": 6 },
+  "word": { "text": "ACCURATE", "display": "Accurate" },
   "meaning": "Correct and exact; free from errors.",
   "example": "Her notes were accurate, so the team trusted the report.",
+  "step3Target": 2,
   "starters": [
-    {
-      "id": "s1",
-      "text": "I was",
-      "accepts": ["am", "was"],
-      "tense": ["present", "past"]
-    },
-    {
-      "id": "s2",
-      "text": "She is",
-      "accepts": ["is"],
-      "tense": ["present"]
-    },
-    {
-      "id": "s3",
-      "text": "They were",
-      "accepts": ["were"],
-      "tense": ["past"]
-    }
+    { "text": "I am accurate when ", "accepts": ["CLAUSE"], "tense": "PRESENT" },
+    { "text": "She is accurate when ", "accepts": ["CLAUSE"], "tense": "PRESENT" },
+    { "text": "They were accurate when ", "accepts": ["CLAUSE"], "tense": "PAST" },
+    { "text": "He stayed accurate despite ", "accepts": ["GERUND"] },
+    { "text": "An accurate report will ", "accepts": ["VP"] },
+    { "text": "Accuracy matters in ", "accepts": ["NOUN_PHRASE"] }
   ],
   "finishes": [
-    {
-      "id": "f1",
-      "text": "accurate.",
-      "form": ["adjective"],
-      "tense": ["present", "past"]
-    },
-    {
-      "id": "f2",
-      "text": "very accurate today.",
-      "form": ["adjectivePhrase"],
-      "tense": ["present"]
-    },
-    {
-      "id": "f3",
-      "text": "accurate yesterday.",
-      "form": ["adjectivePhrase"],
-      "tense": ["past"]
-    }
-  ],
-  "step3Target": {
-    "requiredCorrect": 2,
-    "challengeModeDefault": false
-  }
+    { "text": "details matter.", "form": "CLAUSE", "tense": "PRESENT" },
+    { "text": "you check your sources.", "form": "CLAUSE", "tense": "PRESENT" },
+    { "text": "things get complicated.", "form": "CLAUSE", "tense": "PRESENT" },
+
+    { "text": "details mattered.", "form": "CLAUSE", "tense": "PAST" },
+    { "text": "you checked your sources.", "form": "CLAUSE", "tense": "PAST" },
+    { "text": "things got complicated.", "form": "CLAUSE", "tense": "PAST" },
+
+    { "text": "checking every number.", "form": "GERUND" },
+    { "text": "reading the fine print.", "form": "GERUND" },
+    { "text": "verifying the facts.", "form": "GERUND" },
+
+    { "text": "science.", "form": "NOUN_PHRASE" },
+    { "text": "journalism.", "form": "NOUN_PHRASE" },
+    { "text": "math.", "form": "NOUN_PHRASE" },
+
+    { "text": "reduce mistakes.", "form": "VP" },
+    { "text": "build trust.", "form": "VP" },
+    { "text": "save time later.", "form": "VP" }
+  ]
 }
