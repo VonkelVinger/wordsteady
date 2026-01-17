@@ -1,310 +1,389 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+/* WordSteady — play.js
+   3-step daily session engine (content-loaded from JSON)
+   - Content source: ./data/today.json (or ./data/words/YYYY-MM-DD.json via ?date=YYYY-MM-DD)
+   - Persists session state to localStorage (keyed by local date + WORD)
+*/
 
-/* Firebase config — same project as admin */
-const firebaseConfig = {
-  apiKey: "AIzaSyBRZaHEyInL-aezQy4_Y9w8SDWPIGG-baE",
-  authDomain: "wordsteady-prod.firebaseapp.com",
-  projectId: "wordsteady-prod",
-  storageBucket: "wordsteady-prod.firebasestorage.app",
-  messagingSenderId: "376102396808",
-  appId: "1:376102396808:web:8996283f6f2fb0cdd5d03d"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-/* ──────────────────────────────
-   Utilities
-   ────────────────────────────── */
-function todayKey() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function shuffleWord(word) {
-  const arr = String(word || "").toUpperCase().split("");
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+document.addEventListener("DOMContentLoaded", async () => {
+  // ──────────────────────────────
+  // Content loading (decoupled)
+  // ──────────────────────────────
+  function ymdLocal() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
-  return arr.join("");
-}
 
-/* ──────────────────────────────
-   Demo fallback (used if Firestore has no word yet)
-   ────────────────────────────── */
-const DEMO_FALLBACK = {
-  word: "exactly",
-  level: "B2",
-  puzzle: { type: "scramble", value: "YCLEAXT" },
-  meaning: {
-    question: "Which meaning best matches this word?",
-    options: [
-      { t: "completely correct or precise", ok: true },
-      { t: "slowly and carefully", ok: false },
-      { t: "almost, but not quite", ok: false },
-    ],
-    explain: "“Exactly” emphasises precision or complete correctness.",
-  },
-  pronunciation: {
-    question: "Which pronunciation is most correct?",
-    options: [
-      { t: "Option A (audio later)", ok: true },
-      { t: "Option B (audio later)", ok: false },
-      { t: "Option C (audio later)", ok: false },
-    ],
-    explain: "Audio will be added once we wire storage and UK/US variants.",
-  },
-  spelling: {
-    question: "Which spelling is correct?",
-    options: [
-      { t: "exactly", ok: true },
-      { t: "exactely", ok: false },
-      { t: "exatly", ok: false },
-      { t: "exactally", ok: false },
-    ],
-    explain: "Watch the ‘-act-’ in the middle: ex-ACT-ly.",
-  },
-};
-
-/* ──────────────────────────────
-   Load today from Firestore and map into demo structure
-   ────────────────────────────── */
-async function loadTodayDemo() {
-  const key = todayKey();
-  const ref = doc(db, "dailyWords", key);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) return DEMO_FALLBACK;
-
-  const d = snap.data() || {};
-
-  const word = String(d.word || "").trim();
-  if (!word) return DEMO_FALLBACK;
-
-  // Allow optional content fields later; provide sensible defaults now
-  const level = String(d.level || d.cefr || "B2").trim();
-
-  // If you don’t store puzzle yet, we generate a scramble from the word.
-  const puzzleValue = (d.puzzle && d.puzzle.value) ? String(d.puzzle.value) : shuffleWord(word);
-
-  // If you don’t store MCQs yet, we generate placeholder MCQs that still work.
-  const meaningExplain = String(d.meaningExplain || d.simpleDef || "").trim() || "Good. That matches the meaning.";
-  const example = String(d.example || "").trim();
-
-  // Optional: if you already store meaning/pron/spelling blocks as objects, use them.
-  // Otherwise we create basic ones that keep the flow working.
-  const meaning = d.meaning && d.meaning.question ? d.meaning : {
-    question: "Which meaning best matches this word?",
-    options: [
-      { t: String(d.simpleDef || meaningExplain || "—"), ok: true },
-      { t: "A different meaning (distractor)", ok: false },
-      { t: "Another different meaning (distractor)", ok: false },
-    ],
-    explain: meaningExplain,
-  };
-
-  const pronunciation = d.pronunciation && d.pronunciation.question ? d.pronunciation : {
-    question: "Pronunciation check (audio later)",
-    options: [
-      { t: "Option A (audio later)", ok: true },
-      { t: "Option B (audio later)", ok: false },
-      { t: "Option C (audio later)", ok: false },
-    ],
-    explain: "Audio will be added once we wire storage and UK/US variants.",
-  };
-
-  const spelling = d.spelling && d.spelling.question ? d.spelling : {
-    question: "Which spelling is correct?",
-    options: [
-      { t: word.toLowerCase(), ok: true },
-      { t: word.toLowerCase().replace("a", "e"), ok: false },
-      { t: word.toLowerCase().slice(0, Math.max(1, word.length - 1)), ok: false },
-      { t: word.toLowerCase() + "ly", ok: false },
-    ],
-    explain: "Focus on the exact letter order.",
-  };
-
-  return {
-    word: word.toLowerCase(),
-    level,
-    puzzle: { type: "scramble", value: puzzleValue },
-    meaning,
-    pronunciation,
-    spelling,
-    // Optional: you can show example somewhere later; we keep it available.
-    example
-  };
-}
-
-/* ──────────────────────────────
-   Your existing UI logic (unchanged, just uses loaded demo)
-   ────────────────────────────── */
-const levelBadge = document.getElementById("levelBadge");
-const progressDots = document.getElementById("progressDots");
-const stepHost = document.getElementById("stepHost");
-const primaryBtn = document.getElementById("primaryBtn");
-
-let steps = [];
-let stepIndex = 0;
-let selectedIndex = null;
-let answered = false;
-
-function renderDots() {
-  progressDots.innerHTML = "";
-  const visibleSteps = 4; // discover + 3 checks
-  const onUntil = Math.min(stepIndex, visibleSteps - 1);
-
-  for (let i = 0; i < visibleSteps; i++) {
-    const dot = document.createElement("div");
-    dot.className = "dot" + (i <= onUntil ? " on" : "");
-    progressDots.appendChild(dot);
+  function getContentUrl() {
+    const u = new URL(window.location.href);
+    const date = u.searchParams.get("date");
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return `./data/words/${date}.json?v=${Date.now()}`;
+    }
+    return `./data/today.json?v=${Date.now()}`;
   }
-}
 
-function setPrimaryLabel() {
-  const s = steps[stepIndex];
-  if (s.kind === "mcq" && !answered) primaryBtn.textContent = "CHECK ANSWER";
-  else if (s.kind === "done") primaryBtn.textContent = "BACK TO TODAY";
-  else primaryBtn.textContent = "CONTINUE";
-}
+  const FALLBACK_PACK = {
+    meta: { id: `fallback-${ymdLocal()}`, minutes: 6 },
+    word: { text: "STEADFAST", display: "Steadfast" },
+    meaning: "firm and reliable in purpose, loyalty, or belief",
+    example: "“She remained steadfast during the crisis.”",
+    step3Target: 2,
+    starters: [
+      { text: "She remained steadfast when ", accepts: ["CLAUSE"], tense: "PAST" },
+      { text: "I try to be steadfast when ", accepts: ["CLAUSE"], tense: "PRESENT" },
+      { text: "He stayed steadfast despite ", accepts: ["GERUND"] },
+      { text: "They were steadfast in their ", accepts: ["NOUN_PHRASE"] },
+      { text: "A steadfast person will ", accepts: ["VP"] }
+    ],
+    finishes: [
+      { text: "things get difficult.", form: "CLAUSE", tense: "PRESENT" },
+      { text: "others change their minds.", form: "CLAUSE", tense: "PRESENT" },
+      { text: "the pressure is intense.", form: "CLAUSE", tense: "PRESENT" },
+      { text: "it matters most.", form: "CLAUSE", tense: "PRESENT" },
+      { text: "it would be easier to quit.", form: "CLAUSE", tense: "PRESENT" },
 
-function render(demo) {
-  renderDots();
-  setPrimaryLabel();
-  selectedIndex = null;
-  answered = false;
+      { text: "things got difficult.", form: "CLAUSE", tense: "PAST" },
+      { text: "others changed their minds.", form: "CLAUSE", tense: "PAST" },
+      { text: "the pressure was intense.", form: "CLAUSE", tense: "PAST" },
+      { text: "it mattered most.", form: "CLAUSE", tense: "PAST" },
+      { text: "it would have been easier to quit.", form: "CLAUSE", tense: "PAST" },
 
-  const s = steps[stepIndex];
+      { text: "things getting difficult.", form: "GERUND" },
+      { text: "the pressure increasing.", form: "GERUND" },
+      { text: "the criticism growing louder.", form: "GERUND" },
 
-  if (s.kind === "info") {
-    stepHost.innerHTML = `
-      <div class="word">${escapeHtml(demo.puzzle.value)}</div>
-      <p class="small" style="text-align:center;margin:0;">
-        This is today’s word. Take a moment to look at it.
-      </p>
-    `;
+      { text: "beliefs.", form: "NOUN_PHRASE" },
+      { text: "commitment.", form: "NOUN_PHRASE" },
+      { text: "principles.", form: "NOUN_PHRASE" },
+
+      { text: "keep going.", form: "VP" },
+      { text: "stand firm.", form: "VP" },
+      { text: "follow through.", form: "VP" },
+      { text: "remain calm under pressure.", form: "VP" }
+    ]
+  };
+
+  async function loadPack() {
+    try {
+      const res = await fetch(getContentUrl(), { cache: "no-store" });
+      if (!res.ok) throw new Error("bad status");
+      const json = await res.json();
+      return json;
+    } catch {
+      return FALLBACK_PACK;
+    }
+  }
+
+  const pack = await loadPack();
+
+  // Basic validation + normalization (contract for the engine)
+  const WORD = String(pack?.word?.text || "").trim().toUpperCase();
+  const DISPLAY =
+    String(pack?.word?.display || "").trim() ||
+    (WORD ? (WORD[0] + WORD.slice(1).toLowerCase()) : "Word");
+  const MEANING = String(pack?.meaning || "").trim() || "—";
+  const EXAMPLE = String(pack?.example || "").trim() || "—";
+  const STEP3_TARGET = Math.max(1, Number(pack?.step3Target || 2));
+  const STARTERS = Array.isArray(pack?.starters) ? pack.starters : [];
+  const FINISHES = Array.isArray(pack?.finishes) ? pack.finishes : [];
+
+  // ──────────────────────────────
+  // DOM
+  // ──────────────────────────────
+  const wordTitle = document.getElementById("wordTitle");
+  const wordMeaning = document.getElementById("wordMeaning");
+  const wordExample = document.getElementById("wordExample");
+  const sessionEyebrow = document.getElementById("sessionEyebrow");
+  const reveal = document.getElementById("reveal");
+
+  // Step 2 elements
+  const buildArea = document.getElementById("buildArea");
+  const bank = document.getElementById("bank");
+  const slots = document.getElementById("slots");
+  const feedback = document.getElementById("feedback");
+  const reset = document.getElementById("reset");
+  const startOver = document.getElementById("startOver");
+  const step2DoneLine = document.getElementById("step2DoneLine");
+
+  // Step 3 elements
+  const ws3 = document.getElementById("ws3");
+  const ws3LockedNote = document.getElementById("ws3LockedNote");
+  const ws3Starters = document.getElementById("ws3Starters");
+  const ws3Finishes = document.getElementById("ws3Finishes");
+  const ws3ResultBox = document.getElementById("ws3ResultBox");
+  const ws3ResultText = document.getElementById("ws3ResultText");
+  const ws3Confirm = document.getElementById("ws3Confirm");
+  const ws3Challenge = document.getElementById("ws3Challenge");
+  const ws3Score = document.getElementById("ws3Score");
+  const wsSaved = document.getElementById("wsSaved");
+  const ws3WorkArea = document.getElementById("ws3WorkArea");
+  const ws3DonePanel = document.getElementById("ws3DonePanel");
+
+  const doneBtn = document.getElementById("doneBtn");
+
+  // Render header content
+  wordTitle.textContent = DISPLAY || "Word";
+  wordMeaning.textContent = MEANING;
+  wordExample.textContent = EXAMPLE;
+  sessionEyebrow.textContent = `Today’s session • ~${Number(pack?.meta?.minutes || 6)} minutes`;
+
+  // If pack is malformed, keep the page usable but don’t crash
+  if (!WORD || !STARTERS.length || !FINISHES.length) {
+    reveal.textContent = "CONTENT ERROR";
+    reveal.disabled = true;
     return;
   }
 
-  if (s.kind === "mcq") {
-    const { question, options } = s.data;
-    stepHost.innerHTML = `
-      <div class="question">${escapeHtml(question)}</div>
-      <div id="options"></div>
-      <div id="feedback"></div>
-    `;
+  reveal.textContent = WORD;
+  reveal.disabled = false;
 
-    const optHost = document.getElementById("options");
+  // ──────────────────────────────
+  // Daily session persistence (keyed by date+word)
+  // ──────────────────────────────
+  const SESSION_KEY = `ws-play-${ymdLocal()}-${WORD}`;
 
-    options.forEach((o, idx) => {
-      const row = document.createElement("label");
-      row.className = "option";
-      row.innerHTML = `
-        <input type="radio" name="opt" value="${idx}" />
-        <div>${escapeHtml(o.t)}</div>
-      `;
-      row.addEventListener("click", () => {
-        if (answered) return;
-        selectedIndex = idx;
-      });
-      optHost.appendChild(row);
+  function saveState(state) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(state)); } catch {}
+  }
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  function clearState() {
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
+  }
+
+  // ──────────────────────────────
+  // UI helpers
+  // ──────────────────────────────
+  function setDoneEnabled(enabled) {
+    doneBtn.setAttribute("aria-disabled", enabled ? "false" : "true");
+  }
+
+  function setSavedMessage(msg) {
+    wsSaved.textContent = msg || "";
+  }
+
+  let savedTimer = null;
+  function pulseSaved() {
+    setSavedMessage("Saved");
+    if (savedTimer) clearTimeout(savedTimer);
+    savedTimer = setTimeout(() => setSavedMessage(""), 1200);
+  }
+
+  // ──────────────────────────────
+  // Session state
+  // ──────────────────────────────
+  let started = false;
+  let step2Done = false;
+
+  // Step 3 completion
+  let step3Correct = 0;
+  let step3Done = false;
+
+  // Challenge mode scoring
+  let attempts = 0;
+  let correct = 0;
+
+  // Currently displayed finishes (includes distractors in challenge mode)
+  let displayedFinishes = [];
+
+  let starterPick = null;
+  let finishPick = null;
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function updateScoreUI() {
+    const prog = `Progress: ${step3Correct} / ${STEP3_TARGET}`;
+    if (ws3Challenge.checked) {
+      ws3Score.textContent = `${prog} • Score: ${correct} / ${attempts}`;
+    } else {
+      ws3Score.textContent = prog;
+    }
+  }
+
+  function currentBuilt() {
+    return [...slots.children].map(s => s.textContent).join("");
+  }
+
+  function allSlotsFilled() {
+    return [...slots.children].every(s => s.textContent && s.textContent.length === 1);
+  }
+
+  function snapshot() {
+    const slotLetters = [...slots.children].map(s => (s.textContent || ""));
+    const bankLetters = [...bank.children].map(t => (t.textContent || ""));
+
+    saveState({
+      started,
+      step2Done,
+      revealDisabled: reveal.disabled,
+      buildAreaVisible: buildArea.style.display === "block",
+      slotLetters,
+      bankLetters,
+      feedbackText: feedback.textContent || "",
+      feedbackOk: feedback.classList.contains("ok"),
+
+      challenge: Boolean(ws3Challenge.checked),
+      step3Correct,
+      step3Done,
+      attempts,
+      correct
     });
-    return;
+
+    pulseSaved();
   }
 
-  if (s.kind === "done") {
-    stepHost.innerHTML = `
-      <div class="question">✓ Today’s word completed</div>
-      <div class="divider"></div>
-      <div class="word" style="letter-spacing:1px;">${escapeHtml(
-        demo.word.toUpperCase()
-      )}</div>
-      <p class="small" style="text-align:center;margin:0;">
-        Nice work. Come back tomorrow for a new word.
-      </p>
-    `;
+  function showStep2DoneUI(on) {
+    step2DoneLine.style.display = on ? "block" : "none";
+    bank.style.display = on ? "none" : "flex";
   }
-}
 
-function showFeedback(ok, explain) {
-  const fb = document.getElementById("feedback");
-  if (!fb) return;
+  function showStep3DoneUI(on) {
+    ws3DonePanel.style.display = on ? "block" : "none";
+    ws3WorkArea.style.display = on ? "none" : "block";
+    ws3Challenge.disabled = on;
+  }
 
-  fb.innerHTML = `
-    <div class="feedback">
-      <div style="font-weight:650;margin-bottom:6px;">
-        ${ok ? "✓ That’s right." : "Not quite."}
-      </div>
-      <div class="small">${escapeHtml(explain)}</div>
-    </div>
-  `;
-}
+  // ─────────────
+  // Step 2 helpers
+  // ─────────────
+  function clearStep2UI() {
+    slots.innerHTML = "";
+    bank.innerHTML = "";
+    feedback.textContent = "";
+    feedback.classList.remove("ok");
+    showStep2DoneUI(false);
+  }
 
-async function boot() {
-  const demo = await loadTodayDemo();
-
-  levelBadge.textContent = demo.level;
-
-  steps = [
-    { id: "discover", kind: "info" },
-    { id: "meaning", kind: "mcq", data: demo.meaning },
-    { id: "pron", kind: "mcq", data: demo.pronunciation },
-    { id: "spelling", kind: "mcq", data: demo.spelling },
-    { id: "done", kind: "done" },
-  ];
-
-  // initial render
-  render(demo);
-
-  primaryBtn.addEventListener("click", () => {
-    const s = steps[stepIndex];
-
-    if (s.kind === "done") {
-      window.location.href = "./index.html";
-      return;
+  function buildSlots(slotLetters) {
+    slots.innerHTML = "";
+    for (let i = 0; i < WORD.length; i++) {
+      const s = document.createElement("div");
+      s.className = "slot";
+      s.textContent = (slotLetters && slotLetters[i]) ? slotLetters[i] : "";
+      slots.appendChild(s);
     }
+  }
 
-    if (s.kind === "mcq" && !answered) {
-      if (selectedIndex === null) return;
-      answered = true;
-      const opt = s.data.options[selectedIndex];
-      showFeedback(!!opt.ok, s.data.explain);
-      setPrimaryLabel();
-      return;
+  // Validate step2Done from actual slots
+  function validateStep2DoneFromSlots() {
+    const built = currentBuilt();
+    if (built === WORD) {
+      step2Done = true;
+      feedback.textContent = "Correct. You’ve built the word.";
+      feedback.classList.add("ok");
+      showStep2DoneUI(true);
+    } else {
+      step2Done = false;
+      feedback.classList.remove("ok");
+      showStep2DoneUI(false);
+      if ((feedback.textContent || "").toLowerCase().includes("built the word")) {
+        feedback.textContent = "";
+      }
     }
+  }
 
-    stepIndex = Math.min(stepIndex + 1, steps.length - 1);
-    render(demo);
-  });
-}
+  // ─────────────
+  // Step 3 helpers
+  // ─────────────
+  function resetStep3Progress() {
+    step3Correct = 0;
+    step3Done = false;
+    attempts = 0;
+    correct = 0;
+    showStep3DoneUI(false);
+    updateScoreUI();
+  }
 
-boot().catch(err => {
-  console.error(err);
-  // If something goes wrong, at least render the fallback.
-  const demo = DEMO_FALLBACK;
-  levelBadge.textContent = demo.level;
+  function renderChoices(container, items, getPressed, onPick, disabled) {
+    container.innerHTML = "";
+    items.forEach((item, idx) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = item.text;
+      b.setAttribute("aria-pressed", getPressed(idx) ? "true" : "false");
+      b.disabled = Boolean(disabled);
+      b.addEventListener("click", () => {
+        if (b.disabled) return;
+        onPick(idx);
+      });
+      container.appendChild(b);
+    });
+  }
 
-  steps = [
-    { id: "discover", kind: "info" },
-    { id: "meaning", kind: "mcq", data: demo.meaning },
-    { id: "pron", kind: "mcq", data: demo.pronunciation },
-    { id: "spelling", kind: "mcq", data: demo.spelling },
-    { id: "done", kind: "done" },
-  ];
+  function lockStep3() {
+    ws3.style.display = "none";
+    ws3LockedNote.style.display = "block";
+    ws3LockedNote.textContent = "Complete Step 2 to unlock Step 3.";
+    resetStep3Progress();
+    starterPick = null;
+    finishPick = null;
+    ws3Confirm.textContent = "";
+    ws3ResultBox.style.display = "none";
+    ws3ResultText.textContent = "";
+    displayedFinishes = [];
+    setDoneEnabled(false);
+    updateStep3UI();
+    snapshot();
+  }
 
-  render(demo);
-});
+  function unlockStep3() {
+    ws3LockedNote.style.display = "none";
+    ws3.style.display = "block";
+    updateScoreUI();
+    updateStep3UI();
+    snapshot();
+  }
+
+  function isCompatible(starterObj, finishObj) {
+    const accepts = Array.isArray(starterObj.accepts) ? starterObj.accepts : [];
+    if (!accepts.includes(finishObj.form)) return false;
+
+    if (finishObj.form === "CLAUSE") {
+      const stTense = starterObj.tense || null;
+      const fnTense = finishObj.tense || null;
+      return Boolean(stTense && fnTense && stTense === fnTense);
+    }
+    return true;
+  }
+
+  function getCompatibleFinishesForStarter(starterObj) {
+    return FINISHES.filter(f => isCompatible(starterObj, f));
+  }
+
+  function uniqueByText(list) {
+    const seen = new Set();
+    const out = [];
+    for (const x of list) {
+      if (!x || !x.text) continue;
+      const key = x.text.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(x);
+    }
+    return out;
+  }
+
+  function buildDistractors(starterObj, correctList) {
+    const distractors = [];
+    const accepts = Array.isArray(starterObj.accepts) ? starterObj.accepts : [];
+
+    // Wrong tense distractor (CLAUSE only)
+    if (accepts.includes("CLAUSE")) {
+      const stTense = starterObj.tense;
+      const opposite = (stTense === "PAST") ? "PRESENT" : (stTense === "PRESENT" ? "PAST" : null);
+      if (opposite) {
+        const wrongTensePoo
