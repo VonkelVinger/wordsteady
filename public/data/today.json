@@ -1,0 +1,50 @@
+{
+  "id": "2026-01-17",
+  "word": "ACCURATE",
+  "meaning": "Correct and exact; free from errors.",
+  "example": "Her notes were accurate, so the team trusted the report.",
+  "starters": [
+    {
+      "id": "s1",
+      "text": "I was",
+      "accepts": ["am", "was"],
+      "tense": ["present", "past"]
+    },
+    {
+      "id": "s2",
+      "text": "She is",
+      "accepts": ["is"],
+      "tense": ["present"]
+    },
+    {
+      "id": "s3",
+      "text": "They were",
+      "accepts": ["were"],
+      "tense": ["past"]
+    }
+  ],
+  "finishes": [
+    {
+      "id": "f1",
+      "text": "accurate.",
+      "form": ["adjective"],
+      "tense": ["present", "past"]
+    },
+    {
+      "id": "f2",
+      "text": "very accurate today.",
+      "form": ["adjectivePhrase"],
+      "tense": ["present"]
+    },
+    {
+      "id": "f3",
+      "text": "accurate yesterday.",
+      "form": ["adjectivePhrase"],
+      "tense": ["past"]
+    }
+  ],
+  "step3Target": {
+    "requiredCorrect": 2,
+    "challengeModeDefault": false
+  }
+}
