@@ -386,4 +386,316 @@ document.addEventListener("DOMContentLoaded", async () => {
       const stTense = starterObj.tense;
       const opposite = (stTense === "PAST") ? "PRESENT" : (stTense === "PRESENT" ? "PAST" : null);
       if (opposite) {
-        const wrongTensePoo
+        const wrongTensePool = FINISHES.filter(f => f.form === "CLAUSE" && f.tense === opposite);
+        if (wrongTensePool.length) {
+          const pick = wrongTensePool[Math.floor(Math.random() * wrongTensePool.length)];
+          distractors.push({ ...pick, _isCorrect: false, _why: "TENSE" });
+        }
+      }
+    }
+
+    // Wrong form distractor
+    const forms = ["CLAUSE", "GERUND", "NOUN_PHRASE", "VP"];
+    const wrongForms = forms.filter(fr => !accepts.includes(fr));
+    if (wrongForms.length) {
+      const targetForm = wrongForms[Math.floor(Math.random() * wrongForms.length)];
+      const wrongFormPool = FINISHES.filter(f => f.form === targetForm);
+      if (wrongFormPool.length) {
+        const pick = wrongFormPool[Math.floor(Math.random() * wrongFormPool.length)];
+        distractors.push({ ...pick, _isCorrect: false, _why: "FORM" });
+      }
+    }
+
+    const correctTexts = new Set(correctList.map(x => x.text.trim().toLowerCase()));
+    return distractors.filter(d => !correctTexts.has(d.text.trim().toLowerCase()));
+  }
+
+  function hintForWrong(starterObj, pickedObj) {
+    const accepts = Array.isArray(starterObj.accepts) ? starterObj.accepts : [];
+    if (pickedObj._why === "TENSE" && accepts.includes("CLAUSE")) {
+      if (starterObj.tense === "PRESENT") {
+        return "Not quite — for habits with “when”, use present tense (e.g., “when things get…”).";
+      }
+      if (starterObj.tense === "PAST") {
+        return "Not quite — this starter is past tense, so the “when” clause should be past (e.g., “when things got…”).";
+      }
+      return "Not quite — check the tense in the “when” clause.";
+    }
+
+    if (pickedObj._why === "FORM") {
+      if (accepts.includes("GERUND")) return "Not quite — after “despite”, use an -ing form (e.g., “despite things getting…”).";
+      if (accepts.includes("NOUN_PHRASE")) return "Not quite — after “in their”, use a noun phrase (e.g., “in their principles”).";
+      if (accepts.includes("VP")) return "Not quite — after “will”, use a verb phrase (e.g., “will stand firm”).";
+      if (accepts.includes("CLAUSE")) return "Not quite — after “when”, use a full clause (a subject + verb).";
+      return "Not quite — check the grammar pattern for this starter.";
+    }
+
+    return "Not quite — try a finish that matches the grammar pattern.";
+  }
+
+  function markStep3Done() {
+    step3Done = true;
+    ws3Confirm.textContent = "✅ Step 3 complete — you used the word correctly twice.";
+    showStep3DoneUI(true);
+    setDoneEnabled(true);
+    updateScoreUI();
+    snapshot();
+  }
+
+  function updateStep3UI() {
+    const disableAll = step3Done;
+
+    // Starters
+    renderChoices(
+      ws3Starters,
+      STARTERS,
+      (i) => starterPick === i,
+      (i) => {
+        starterPick = i;
+        finishPick = null;
+        ws3Confirm.textContent = step3Done ? "✅ Step 3 complete — you used the word correctly twice." : "";
+        ws3ResultBox.style.display = "none";
+        ws3ResultText.textContent = "";
+        updateStep3UI();
+        snapshot();
+      },
+      disableAll
+    );
+
+    const starterObj = (starterPick === null) ? null : STARTERS[starterPick];
+    const correctList = starterObj ? getCompatibleFinishesForStarter(starterObj) : [];
+    const challengeOn = Boolean(ws3Challenge.checked);
+
+    let listForDisplay = [];
+    if (!starterObj) {
+      listForDisplay = [];
+    } else if (!challengeOn) {
+      listForDisplay = correctList.map(x => ({ ...x, _isCorrect: true }));
+    } else {
+      const distractors = buildDistractors(starterObj, correctList);
+      listForDisplay = [
+        ...correctList.map(x => ({ ...x, _isCorrect: true })),
+        ...distractors
+      ];
+    }
+
+    listForDisplay = uniqueByText(listForDisplay);
+    displayedFinishes = shuffle(listForDisplay.slice());
+
+    // Finishes
+    renderChoices(
+      ws3Finishes,
+      displayedFinishes,
+      (i) => finishPick === i,
+      (i) => {
+        if (starterPick === null) return;
+        if (step3Done) return;
+
+        const s = STARTERS[starterPick];
+        const picked = displayedFinishes[i];
+        if (!picked) return;
+
+        if (ws3Challenge.checked) {
+          attempts += 1;
+          if (picked._isCorrect) correct += 1;
+        }
+
+        if (!picked._isCorrect) {
+          finishPick = null;
+          ws3ResultBox.style.display = "none";
+          ws3ResultText.textContent = "";
+          ws3Confirm.textContent = hintForWrong(s, picked);
+          updateScoreUI();
+          updateStep3UI();
+          snapshot();
+          return;
+        }
+
+        step3Correct += 1;
+        updateScoreUI();
+
+        finishPick = i;
+        ws3ResultText.textContent = s.text + picked.text;
+        ws3ResultBox.style.display = "block";
+
+        if (step3Correct >= STEP3_TARGET) {
+          markStep3Done();
+        } else {
+          ws3Confirm.textContent = ws3Challenge.checked ? "Correct ✅" : "Nice. This sentence is grammatically correct.";
+          snapshot();
+        }
+
+        updateStep3UI();
+      },
+      disableAll
+    );
+  }
+
+  // ─────────────
+  // Step 2 gameplay
+  // ─────────────
+  function renderBankFromLetters(letters) {
+    bank.innerHTML = "";
+    letters.forEach((letter) => {
+      const t = document.createElement("div");
+      t.className = "tile";
+      t.textContent = letter;
+
+      t.addEventListener("click", () => {
+        if (!started) return;
+        if (step2Done) return;
+
+        const empty = [...slots.children].find(s => !s.textContent);
+        if (!empty) return;
+
+        empty.textContent = letter;
+        t.remove();
+        snapshot();
+
+        if (!allSlotsFilled()) return;
+
+        const built = currentBuilt();
+        if (built === WORD) {
+          step2Done = true;
+          feedback.textContent = "Correct. You’ve built the word.";
+          feedback.classList.add("ok");
+          showStep2DoneUI(true);
+          unlockStep3();
+          snapshot();
+        } else {
+          feedback.textContent = "Not quite. Reset and try again.";
+          lockStep3();
+          snapshot();
+        }
+      });
+
+      bank.appendChild(t);
+    });
+
+    if (!step2Done && bank.children.length === 0) {
+      renderBankFromLetters(shuffle(WORD.split("")));
+    }
+  }
+
+  function buildTilesRandom() {
+    renderBankFromLetters(shuffle(WORD.split("")));
+  }
+
+  function enterBuildState() {
+    started = true;
+    step2Done = false;
+    reveal.disabled = true;
+    buildArea.style.display = "block";
+
+    lockStep3();
+    clearStep2UI();
+    buildSlots();
+    buildTilesRandom();
+    snapshot();
+  }
+
+  function doReset() {
+    if (!started) return;
+    step2Done = false;
+
+    lockStep3();
+    clearStep2UI();
+    buildSlots();
+    buildTilesRandom();
+    snapshot();
+  }
+
+  function doStartOver() {
+    started = false;
+    step2Done = false;
+
+    reveal.disabled = false;
+    buildArea.style.display = "none";
+
+    lockStep3();
+    clearStep2UI();
+    setDoneEnabled(false);
+    showStep3DoneUI(false);
+    setSavedMessage("");
+    clearState();
+  }
+
+  // ─────────────
+  // Restore / Init
+  // ─────────────
+  setDoneEnabled(false);
+  showStep3DoneUI(false);
+  updateScoreUI();
+
+  const saved = loadState();
+  if (saved) {
+    started = Boolean(saved.started);
+    step2Done = Boolean(saved.step2Done);
+
+    ws3Challenge.checked = Boolean(saved.challenge);
+    step3Correct = Number(saved.step3Correct || 0);
+    step3Done = Boolean(saved.step3Done);
+    attempts = Number(saved.attempts || 0);
+    correct = Number(saved.correct || 0);
+
+    reveal.disabled = Boolean(saved.revealDisabled);
+    buildArea.style.display = saved.buildAreaVisible ? "block" : "none";
+
+    const slotLetters = Array.isArray(saved.slotLetters) ? saved.slotLetters : null;
+    const bankLetters = Array.isArray(saved.bankLetters) ? saved.bankLetters : null;
+
+    if (started) {
+      buildSlots(slotLetters);
+      renderBankFromLetters(bankLetters && bankLetters.length ? bankLetters : shuffle(WORD.split("")));
+      feedback.textContent = saved.feedbackText || "";
+      if (saved.feedbackOk) feedback.classList.add("ok");
+    } else {
+      clearStep2UI();
+    }
+
+    // reconcile step2Done with actual slots
+    validateStep2DoneFromSlots();
+
+    updateScoreUI();
+
+    if (step2Done) {
+      ws3.style.display = "block";
+      ws3LockedNote.style.display = "none";
+      updateStep3UI();
+    } else {
+      lockStep3();
+    }
+
+    if (step3Done) showStep3DoneUI(true);
+    setDoneEnabled(step3Done);
+
+    setSavedMessage("Saved earlier");
+    if (savedTimer) clearTimeout(savedTimer);
+    savedTimer = setTimeout(() => setSavedMessage(""), 1200);
+  } else {
+    buildArea.style.display = "none";
+    reveal.disabled = false;
+    lockStep3();
+    clearStep2UI();
+  }
+
+  // Events
+  reveal.addEventListener("click", () => {
+    if (started) return;
+    enterBuildState();
+  });
+
+  reset.addEventListener("click", doReset);
+  startOver.addEventListener("click", doStartOver);
+
+  ws3Challenge.addEventListener("change", () => {
+    if (step3Done) return;
+    ws3Confirm.textContent = "";
+    ws3ResultBox.style.display = "none";
+    ws3ResultText.textContent = "";
+    finishPick = null;
+    updateScoreUI();
+    updateStep3UI();
+    snapshot();
+  });
+});
