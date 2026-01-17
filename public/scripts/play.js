@@ -1,4 +1,4 @@
-/* WordSteady — play.js
+/* play.js — WordSteady
    3-step daily session engine (content-loaded from JSON)
    - Content source: ./data/today.json (or ./data/words/YYYY-MM-DD.json via ?date=YYYY-MM-DD)
    - Persists session state to localStorage (keyed by local date + WORD)
@@ -101,6 +101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Step 2 elements
   const buildArea = document.getElementById("buildArea");
+  const step2LockOverlay = document.getElementById("step2LockOverlay");
   const bank = document.getElementById("bank");
   const slots = document.getElementById("slots");
   const feedback = document.getElementById("feedback");
@@ -169,6 +170,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     wsSaved.textContent = msg || "";
   }
 
+  function showStep2Overlay(on) {
+    if (!step2LockOverlay) return;
+    step2LockOverlay.style.display = on ? "flex" : "none";
+  }
+
   let savedTimer = null;
   function pulseSaved() {
     setSavedMessage("Saved");
@@ -229,7 +235,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       started,
       step2Done,
       revealDisabled: reveal.disabled,
-      buildAreaVisible: buildArea.style.display === "block",
+      buildAreaVisible: true, // build area is always visible now
       slotLetters,
       bankLetters,
       feedbackText: feedback.textContent || "",
@@ -585,7 +591,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     started = true;
     step2Done = false;
     reveal.disabled = true;
-    buildArea.style.display = "block";
+
+    // NEW: unlock the Step 2 area visually
+    showStep2Overlay(false);
 
     lockStep3();
     clearStep2UI();
@@ -610,7 +618,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     step2Done = false;
 
     reveal.disabled = false;
-    buildArea.style.display = "none";
+
+    // NEW: relock Step 2 visually
+    showStep2Overlay(true);
 
     lockStep3();
     clearStep2UI();
@@ -639,18 +649,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     correct = Number(saved.correct || 0);
 
     reveal.disabled = Boolean(saved.revealDisabled);
-    buildArea.style.display = saved.buildAreaVisible ? "block" : "none";
 
     const slotLetters = Array.isArray(saved.slotLetters) ? saved.slotLetters : null;
     const bankLetters = Array.isArray(saved.bankLetters) ? saved.bankLetters : null;
 
     if (started) {
+      showStep2Overlay(false);
       buildSlots(slotLetters);
       renderBankFromLetters(bankLetters && bankLetters.length ? bankLetters : shuffle(WORD.split("")));
       feedback.textContent = saved.feedbackText || "";
       if (saved.feedbackOk) feedback.classList.add("ok");
     } else {
+      showStep2Overlay(true);
       clearStep2UI();
+      buildSlots();
     }
 
     // reconcile step2Done with actual slots
@@ -673,10 +685,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (savedTimer) clearTimeout(savedTimer);
     savedTimer = setTimeout(() => setSavedMessage(""), 1200);
   } else {
-    buildArea.style.display = "none";
+    // Fresh load (not started yet)
+    showStep2Overlay(true);
     reveal.disabled = false;
-    lockStep3();
+
     clearStep2UI();
+    buildSlots();
+    lockStep3();
   }
 
   // Events
