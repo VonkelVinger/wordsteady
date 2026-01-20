@@ -1,229 +1,3 @@
-<!-- play.html — PART 1/2 -->
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Daily Practice • WordSteady</title>
-
-  <style>
-    :root{
-      --bg:#f6f7f9; --card:#fff; --text:#121417; --muted:#5a6672; --line:#e5e9ef;
-      --btn:#111827; --btnText:#fff; --soft:#f1f3f6;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-    .container{max-width:560px;margin:0 auto;padding:20px 16px 40px}
-    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-    .brand{font-weight:700}
-    .badge{font-size:13px;color:var(--muted)}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
-    .eyebrow{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-    h1,h2{margin:10px 0 6px}
-    p{margin:8px 0;line-height:1.5}
-    .divider{height:1px;background:var(--line);margin:14px 0}
-
-    .btn{display:inline-block;padding:10px 14px;border-radius:12px;background:var(--btn);
-      color:var(--btnText);text-decoration:none;font-weight:600}
-    .btn.secondary{background:transparent;color:var(--text);border:1px solid var(--line)}
-    .btn[aria-disabled="true"]{opacity:.55;pointer-events:none}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-
-    .reveal{
-      width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);
-      background:var(--soft);font-weight:700;letter-spacing:.08em;cursor:pointer;
-      user-select:none;
-    }
-    .reveal:disabled{opacity:.6;cursor:not-allowed}
-
-    /* Word emphasis */
-    .todayWord{
-      font-size:28px;
-      font-weight:700;
-      letter-spacing:0.015em;
-      margin:14px 0 10px;
-      padding:6px 10px;
-      background:#f9fafb;
-      border-radius:8px;
-      text-align:center;
-    }
-
-    /* Step 2 is now always visible; overlay locks it until Step 1 is tapped */
-    .buildArea{
-      margin-top:12px;
-      position:relative;
-    }
-
-    .step2Overlay{
-      position:absolute;
-      inset:0;
-      border-radius:12px;
-      background:rgba(246,247,249,0.92);
-      border:1px solid var(--line);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:14px;
-      text-align:center;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.4;
-      z-index:5;
-      pointer-events:auto;
-    }
-    .step2Overlay strong{color:var(--text)}
-    .step2Overlay .hint{margin-top:6px;font-size:12px;color:var(--muted)}
-
-    .slots,.bank{display:flex;gap:8px;flex-wrap:wrap}
-    .slots{margin-top:10px}
-    .bank{margin-top:12px}
-    .slot{
-      width:36px;height:40px;border-radius:10px;border:1px dashed var(--line);
-      display:flex;align-items:center;justify-content:center;color:var(--muted);
-      background:rgba(0,0,0,.01)
-    }
-    .tile{
-      width:36px;height:40px;border-radius:10px;border:1px solid var(--line);
-      background:#fff;display:flex;align-items:center;justify-content:center;
-      font-weight:700;cursor:pointer;user-select:none
-    }
-    .actions{margin-top:10px;display:flex;gap:10px;flex-wrap:wrap}
-    .feedback{margin-top:10px;color:var(--muted);min-height:20px}
-    .ok{color:var(--text)}
-
-    .doneLine{
-      margin-top:10px;
-      padding:10px 12px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:var(--soft);
-      color:var(--text);
-      font-size:13px;
-      display:none;
-    }
-
-    .lockedNote{margin-top:6px;color:var(--muted);font-size:13px}
-    .ws3{display:none;margin-top:10px}
-    .choiceGrid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-    .chip{
-      border:1px solid var(--line);background:#fff;border-radius:999px;
-      padding:8px 10px;cursor:pointer;font-size:13px;line-height:1.1;
-    }
-    .chip[aria-pressed="true"]{border-color:#cfd7e3;background:var(--soft);color:var(--text)}
-    .chip:disabled{opacity:.55;cursor:not-allowed}
-
-    .resultBox{
-      margin-top:10px;border:1px solid var(--line);border-radius:12px;
-      padding:10px 12px;background:#fff;
-    }
-    .resultLabel{font-size:12px;color:var(--muted);margin:0 0 4px}
-    .resultText{margin:0;font-weight:600}
-
-    .ws3TopRow{
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      margin:10px 0 0;
-    }
-    .toggle{
-      display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);
-      user-select:none;
-    }
-    .score{
-      font-size:13px;color:var(--muted);
-      white-space:nowrap;
-      text-align:right;
-    }
-    .saved{
-      font-size:12px;
-      color:var(--muted);
-      margin-top:4px;
-      text-align:right;
-      min-height:16px;
-    }
-
-    .ws3DonePanel{
-      display:none;
-      margin-top:12px;
-      padding:12px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:var(--soft);
-    }
-    .ws3DoneTitle{margin:0 0 4px;font-weight:700}
-    .ws3DoneSub{margin:0;color:var(--muted);font-size:13px}
-  </style>
-</head>
-
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="brand">WordSteady</div>
-      <div class="badge">Daily practice</div>
-    </div>
-
-    <div class="card">
-      <p class="eyebrow" id="sessionEyebrow">Today’s session • ~6 minutes</p>
-
-      <h1>Today’s word</h1>
-      <div class="divider"></div>
-
-      <h2 id="wordTitle" class="todayWord">Loading…</h2>
-      <p><strong>Meaning:</strong> <span id="wordMeaning">Loading…</span></p>
-      <p><strong>Example:</strong> <span id="wordExample">Loading…</span></p>
-
-      <div class="divider"></div>
-
-      <h2>Step 1: Notice</h2>
-      <p>
-        Look carefully at today's word above. When you’re ready, continue with Step 2 by
-        tapping the letters below in the right sequence to build today's word.
-      </p>
-
-      <h2>Step 2: Build the word</h2>
-
-      <div style="margin-top:10px;">
-        <button id="reveal" class="reveal" type="button" disabled>LOADING</button>
-      </div>
-
-      <div id="buildArea" class="buildArea" aria-label="Build the word">
-        <!-- Overlay locks Step 2 until Step 1 starts -->
-        <div id="step2LockOverlay" class="step2Overlay" role="note" aria-label="Step 2 locked">
-          <div>
-            Tap the word button above to begin <strong>Step 2</strong>.
-            <div class="hint">Then tap the letter tiles in order.</div>
-          </div>
-        </div>
-
-        <div id="slots" class="slots" aria-label="Slots"></div>
-        <div id="bank" class="bank" aria-label="Letter tiles"></div>
-
-        <p id="step2DoneLine" class="doneLine">✅ Step 2 complete — you built the word.</p>
-
-        <div class="actions">
-          <button id="reset" class="btn secondary" type="button">Reset</button>
-          <button id="startOver" class="btn secondary" type="button">Start over</button>
-        </div>
-
-        <p id="feedback" class="feedback"></p>
-      </div>
-
-      <div class="divider"></div>
-      <h2>Step 3: Use it</h2>
-      <p class="lockedNote" id="ws3LockedNote">Complete Step 2 to unlock Step 3.</p>
-
-      <div class="ws3" id="ws3">
-        <p style="margin-top:0;">Goal: build <strong>2 correct sentences</strong>.</p>
-
-        <div class="ws3TopRow">
-          <label class="toggle">
-            <input id="ws3Challenge" type="checkbox" />
-            Challenge mode (include tricky options)
-          </label>
-          <div class="score">
-            <div id="ws3Score">Progress: 0 / 2</div>
-            <div id="wsSaved" class="saved"></div>
-          </div>
-        </div>
 <!-- play.html — PART 2/2 -->
         <div id="ws3WorkArea">
           <div>
@@ -260,6 +34,54 @@
       </div>
     </div>
   </div>
+
+  <script>
+    (function(){
+      function ready(fn){
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
+        else fn();
+      }
+
+      ready(function(){
+        var btn = document.getElementById("introToggleBtn");
+        var section = document.getElementById("introSection");
+        if (!btn || !section) return;
+
+        var KEY = "ws_intro_seen_v1";
+
+        function setOpen(next){
+          btn.setAttribute("aria-expanded", String(next));
+          section.hidden = !next;
+          btn.textContent = next ? "Hide this" : "First time here?";
+        }
+
+        function safeGetSeen(){
+          try { return localStorage.getItem(KEY) === "1"; } catch(e){ return false; }
+        }
+        function safeSetSeen(){
+          try { localStorage.setItem(KEY, "1"); } catch(e){}
+        }
+
+        // Auto-open on first visit; remember once seen (and especially once closed).
+        var seen = safeGetSeen();
+        if (!seen){
+          setOpen(true);
+          safeSetSeen();
+        } else {
+          setOpen(false);
+        }
+
+        btn.addEventListener("click", function(){
+          var isOpen = btn.getAttribute("aria-expanded") === "true";
+          var next = !isOpen;
+          setOpen(next);
+
+          // Mark as seen so it won't auto-open again after the user interacts.
+          safeSetSeen();
+        });
+      });
+    })();
+  </script>
 
   <script src="./scripts/play.js" defer></script>
 </body>
