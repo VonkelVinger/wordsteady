@@ -65,12 +65,55 @@
 
     /* Always-visible micro tag line */
     .tagline{
-      margin:0 0 12px;
+      margin:0 0 10px;
       color:var(--muted);
       font-size:13px;
       line-height:1.35;
     }
     .tagline strong{color:var(--text)}
+
+    /* Test tools row (streak + share + feedback) */
+    .toolsRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:0 0 12px;
+    }
+    .streakLine{
+      font-size:13px;
+      color:var(--muted);
+      margin:0;
+    }
+    .streakLine strong{color:var(--text)}
+    .miniActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .miniBtn{
+      appearance:none;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:7px 10px;
+      border-radius:12px;
+      font-size:13px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .miniBtn:hover{background:var(--soft)}
+    .miniBtn:focus{outline:2px solid rgba(17,24,39,.15);outline-offset:2px}
+    .miniStatus{
+      font-size:12px;
+      color:var(--muted);
+      min-height:16px;
+      margin:4px 0 0;
+      text-align:right;
+      flex:1 1 100%;
+    }
 
     /* Intro block */
     .intro{
@@ -241,6 +284,16 @@
         <strong>One word, a few minutes.</strong> Build vocabulary, spelling, and recognition that sticks.
       </p>
 
+      <div class="toolsRow" aria-label="Session tools">
+        <p id="streakLine" class="streakLine">Streak: <strong>0</strong> days</p>
+
+        <div class="miniActions">
+          <button id="shareBtn" class="miniBtn" type="button">Share</button>
+          <button id="feedbackBtn" class="miniBtn" type="button">Send feedback</button>
+          <div id="miniStatus" class="miniStatus"></div>
+        </div>
+      </div>
+
       <section class="intro" id="introSection" aria-label="About WordSteady" hidden>
         <h2>What this is</h2>
         <p><strong>Build your English, one word at a time.</strong> WordSteady helps you grow your vocabulary, spelling, and word recognition through short, focused daily practice.</p>
@@ -269,7 +322,6 @@
       </div>
 
       <div id="buildArea" class="buildArea" aria-label="Build the word">
-        <!-- Overlay locks Step 2 until Step 1 starts -->
         <div id="step2LockOverlay" class="step2Overlay" role="note" aria-label="Step 2 locked">
           <div>
             Tap the word button above to begin <strong>Step 2</strong>.
@@ -351,7 +403,110 @@
         else fn();
       }
 
-      ready(function(){
+      function pad2(n){ return String(n).padStart(2, "0"); }
+      function todayKey(){
+        var d = new Date();
+        return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+      }
+
+      function safeGet(k){
+        try { return localStorage.getItem(k); } catch(e){ return null; }
+      }
+      function safeSet(k,v){
+        try { localStorage.setItem(k,v); } catch(e){}
+      }
+
+      function setMiniStatus(msg){
+        var el = document.getElementById("miniStatus");
+        if (!el) return;
+        el.textContent = msg || "";
+        if (msg){
+          window.clearTimeout(setMiniStatus._t);
+          setMiniStatus._t = window.setTimeout(function(){ el.textContent = ""; }, 2500);
+        }
+      }
+
+      function computeStreak(){
+        var streak = 0;
+        var d = new Date();
+        for (var i=0; i<365; i++){
+          var key = d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+          var done = safeGet("ws_done_" + key) === "1";
+          if (!done) break;
+          streak++;
+          d.setDate(d.getDate() - 1);
+        }
+        return streak;
+      }
+
+      function updateStreakUI(){
+        var el = document.getElementById("streakLine");
+        if (!el) return;
+
+        var streak = computeStreak();
+        var t = todayKey();
+        var doneToday = safeGet("ws_done_" + t) === "1";
+
+        if (streak <= 0){
+          el.innerHTML = "Streak: <strong>0</strong> days";
+          return;
+        }
+
+        el.innerHTML = "Streak: <strong>" + streak + "</strong> day" + (streak === 1 ? "" : "s")
+          + (doneToday ? " • <strong>Done today</strong>" : "");
+      }
+
+      function enableDoneButton(){
+        var btn = document.getElementById("doneBtn");
+        if (!btn) return;
+        btn.setAttribute("aria-disabled", "false");
+        btn.style.pointerEvents = "auto";
+        btn.style.opacity = "1";
+      }
+
+      function markDoneIfNeeded(){
+        var t = todayKey();
+        var k = "ws_done_" + t;
+        if (safeGet(k) === "1") return;
+
+        safeSet(k, "1");
+        updateStreakUI();
+        enableDoneButton();
+        setMiniStatus("Saved: done for today");
+      }
+
+      function isStep3DoneVisible(){
+        var panel = document.getElementById("ws3DonePanel");
+        if (!panel) return false;
+        var cs = window.getComputedStyle(panel);
+        return cs && cs.display !== "none" && cs.visibility !== "hidden" && panel.offsetHeight > 0;
+      }
+
+      function setupCompletionDetector(){
+        var panel = document.getElementById("ws3DonePanel");
+        if (!panel) return;
+
+        if (isStep3DoneVisible()) markDoneIfNeeded();
+
+        var mo = new MutationObserver(function(){
+          if (isStep3DoneVisible()) markDoneIfNeeded();
+        });
+
+        mo.observe(panel, { attributes:true, childList:true, subtree:true });
+
+        var tries = 0;
+        var it = window.setInterval(function(){
+          tries++;
+          if (isStep3DoneVisible()){
+            markDoneIfNeeded();
+            window.clearInterval(it);
+          } else if (tries >= 12){
+            window.clearInterval(it);
+          }
+        }, 500);
+      }
+
+      function setupIntroToggle(){
         var btn = document.getElementById("introToggleBtn");
         var section = document.getElementById("introSection");
         if (!btn || !section) return;
@@ -364,30 +519,98 @@
           btn.textContent = next ? "Hide this" : "First time here?";
         }
 
-        function safeGetSeen(){
-          try { return localStorage.getItem(KEY) === "1"; } catch(e){ return false; }
-        }
-        function safeSetSeen(){
-          try { localStorage.setItem(KEY, "1"); } catch(e){}
-        }
-
-        // Auto-open on first visit; remember once seen (and especially once closed).
-        var seen = safeGetSeen();
+        var seen = safeGet(KEY) === "1";
         if (!seen){
           setOpen(true);
-          safeSetSeen();
+          safeSet(KEY, "1");
         } else {
           setOpen(false);
         }
 
         btn.addEventListener("click", function(){
           var isOpen = btn.getAttribute("aria-expanded") === "true";
-          var next = !isOpen;
-          setOpen(next);
-
-          // Mark as seen so it won't auto-open again after the user interacts.
-          safeSetSeen();
+          setOpen(!isOpen);
+          safeSet(KEY, "1");
         });
+      }
+
+      function setupShare(){
+        var btn = document.getElementById("shareBtn");
+        if (!btn) return;
+
+        btn.addEventListener("click", async function(){
+          var url = location.origin + location.pathname;
+          var title = "WordSteady";
+          var text = "Try today’s WordSteady session (5–6 minutes):";
+
+          try{
+            if (navigator.share){
+              await navigator.share({ title: title, text: text, url: url });
+              setMiniStatus("Shared");
+              return;
+            }
+          } catch(e){
+            return;
+          }
+
+          try{
+            await navigator.clipboard.writeText(url);
+            setMiniStatus("Link copied");
+          } catch(e2){
+            window.prompt("Copy this link:", url);
+          }
+        });
+      }
+
+      function setupFeedback(){
+        var btn = document.getElementById("feedbackBtn");
+        if (!btn) return;
+
+        btn.addEventListener("click", function(){
+          // Obfuscated email (reduces casual scraping; not bulletproof)
+          var u = "willem.kempen";
+          var d = "kriptiek.com";
+          var email = u + "@" + d;
+
+          var word = (document.getElementById("wordTitle") || {}).textContent || "";
+          word = (word || "").trim();
+
+          var subject = "WordSteady feedback";
+          var bodyLines = [
+            "Hi Willem,",
+            "",
+            "Here’s my feedback on WordSteady:",
+            "",
+            "- What I liked:",
+            "- What confused me:",
+            "- What I’d change:",
+            "",
+            "Today’s word: " + (word || "(not loaded)"),
+            "Date: " + todayKey(),
+            "Page: " + (location.origin + location.pathname),
+            "",
+            "Thanks!"
+          ];
+
+          var href = "mailto:" + encodeURIComponent(email)
+            + "?subject=" + encodeURIComponent(subject)
+            + "&body=" + encodeURIComponent(bodyLines.join("\n"));
+
+          window.location.href = href;
+        });
+      }
+
+      ready(function(){
+        updateStreakUI();
+        setupIntroToggle();
+        setupShare();
+        setupFeedback();
+        setupCompletionDetector();
+
+        var t = todayKey();
+        if (safeGet("ws_done_" + t) === "1"){
+          enableDoneButton();
+        }
       });
     })();
   </script>
